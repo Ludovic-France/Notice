@@ -1,0 +1,314 @@
+/* Police moderne */
+body {
+    font-family: 'Segoe UI', 'Arial', sans-serif;
+    margin: 0;
+    background: #f6f8fa;
+}
+#container {
+    display: flex;
+    height: 100vh;
+}
+aside#tools, aside#controls {
+    width: 220px;
+    background: #bbbbbb;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 16px 0;
+}
+aside#tools {
+    border-right: 2px solid #eee;
+}
+aside#controls {
+    border-left: 2px solid #eee;
+    align-items: center;
+    gap: 12px;
+}
+aside h3 {
+    margin: 0 0 10px 20px;
+    font-size: 1.1em;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+.section {
+    margin-bottom: 24px;
+    padding: 0 12px;
+}
+.palette button {
+    border: none;
+    background: none;
+    font-size: 1em;
+    margin: 0 2px;
+    cursor: pointer;
+}
+.palette input[type=color] {
+    vertical-align: middle;
+    margin-right: 8px;
+}
+#draggable-objects .draggable {
+    background: #345b94;
+    color: #fff;
+    border-radius: 6px;
+    margin: 4px 0;
+    padding: 5px 8px;
+    cursor: grab;
+    text-align: center;
+    user-select: none;
+    box-shadow: 0 1px 4px rgba(40,40,50,0.1);
+    transition: background 0.2s;
+}
+#draggable-objects .draggable:active {
+    background: #24344f;
+}
+#icons-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+#icons-list img {
+    width: 30px;
+    height: 30px;
+    border-radius: 3px;
+    background: #fff;
+    border: 1px solid #bbb;
+    cursor: grab;
+}
+main#document {
+    flex: 1;
+    background: #eceff1;
+    overflow-y: auto;
+    position: relative;
+    padding: 24px 0;
+}
+#pages-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+}
+.page {
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    max-width: 100vw;
+    max-height: 297mm;   /* <-- Ajoute cette ligne */
+    overflow: hidden;    /* <-- Ajoute cette ligne */
+    box-shadow: 0 2px 20px #0003;
+    border-radius: 10px;
+    margin-bottom: 0;
+    position: relative;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    break-after: page;
+}
+.page.landscape {
+    width: 297mm;
+    min-height: 210mm;
+    max-height: 210mm;   /* <-- Ajoute cette ligne */
+    overflow: hidden;    /* <-- Ajoute cette ligne */
+}
+.header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 18px 32px 10px 32px;
+    height: 80px;
+    background: #f6f8fa;
+}
+.header .logo {
+    height: 60px;
+    width: 60px;
+    object-fit: contain;
+}
+.header .doc-title {
+    flex: 1;
+    margin: 0 18px;
+    font-size: 30pt;
+    font-weight: bold;
+    text-align: center;
+}
+.header .revision {
+    min-width: 60px;
+    text-align: right;
+    font-size: 16px;
+}
+.header .revision .index {
+    font-size: 1em;
+    /*font-weight: bold;*/
+}
+.header .revision .num {
+    font-size: 1em;
+    color: #22d;
+	font-weight: bold;
+}
+.page .content {
+    flex: 1;
+    padding: 24px 40px 24px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow: visible;   /* ou 'auto' si tu veux un mini-scroll */
+    max-height: 100%;    /* Ajoute cette ligne pour éviter le débordement */
+}
+.page .pagination {
+    position: absolute;
+    right: 24px;
+    bottom: 16px;
+    color: #888;
+    font-size: 1em;
+    letter-spacing: 2px;
+}
+.page .img-drop {
+    border: 2px dashed #bbb;
+    min-height: 15cm;
+    max-height: 20cm;
+	width: 100%;
+    background: #fafbfc;
+    border-radius: 12px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.page .img-drop img {
+    max-width: 90%;
+    max-height: 100%;
+}
+.rte-area {
+    min-height: 36px;
+    padding: 8px;
+    background: #f6f8ff;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    margin-bottom: 8px;
+    outline: none;
+}
+.selected {
+    box-shadow: 0 0 0 3px #4078d6 !important;
+    border-color: #4078d6 !important;
+}
+.page-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.page-table th, .page-table td {
+    border: 1px solid #888;
+    padding: 8px 5px;
+    min-width: 30px;
+}
+.page-table th {
+    background: #e3ebf3;
+    font-weight: bold;
+}
+.page-table td.selected, .page-table th.selected {
+    background: #d1e0fa;
+}
+.page-table td, .page-table th {
+    vertical-align: middle;
+    text-align: left;
+    min-width: 60px;
+    position: relative;
+    border: 1px solid #888;
+    word-break: break-word;
+}
+.page .chapter-title {
+    margin: 20px 0 10px 0;
+    font-size: 26px;
+    font-weight: bold;
+    color: #345b94;
+}
+aside#controls button {
+    width: 48px;
+    height: 48px;
+    border: none;
+    background: #5555ff;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 1.4em;
+    cursor: pointer;
+    box-shadow: 0 1px 5px #0002;
+    margin: 3px;
+    transition: background 0.2s;
+}
+aside#controls button:hover {
+    background: #24344f;
+}
+.page .selected {
+  box-shadow: 0 0 0 4px #2e6fd8, 0 2px 20px #0003;
+}
+.chapter-objects { 
+	height: 25cm; /* Assure une vraie zone droppable même vide */
+    max-height: 25cm;   /* Par exemple, à ajuster si besoin */
+	border: 1px solid #eee;
+	border-radius: 5px;
+    overflow: hidden;
+	position: relative;
+}
+.drop-target {
+    transition: background 0.2s;
+	height: 6px;
+	margin: 2px 0;
+	background: #eee;
+    border-radius: 4px;
+}
+.chapter-objects [draggable="true"] {
+    cursor: grab;
+}
+.chapter-objects .dragging {
+    opacity: 0.5;
+}
+.table-container {
+    width: 100%;
+    margin: 10px 0;
+}
+.col-resizer {
+    position: absolute;
+    top: 0;
+    right: -3px; /* Se positionne sur le bord droit de la cellule */
+    width: 6px;  /* Zone cliquable */
+    height: 100%;
+    cursor: col-resize; /* Affiche le curseur de redimensionnement */
+    z-index: 10;
+}
+
+#context-menu {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    padding: 5px 0;
+    z-index: 1000;
+    font-size: 14px;
+}
+#context-menu div {
+    padding: 8px 15px;
+    cursor: pointer;
+}
+#context-menu div:hover {
+    background: #f0f0f0;
+}
+#context-menu hr {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 4px 0;
+}
+.page-table .shaded-header {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+.col-resizer {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+}
+
+::-webkit-scrollbar { width: 10px; background: #eaeaea;}
+::-webkit-scrollbar-thumb { background: #b0c1db; border-radius: 4px; }
