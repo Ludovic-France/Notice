@@ -178,6 +178,11 @@ main#document {
     max-width: 90%;
     max-height: 100%;
 }
+
+#table-of-contents{
+	list-style-type: none;
+}
+
 .rte-area {
     min-height: 36px;
     padding: 8px;
