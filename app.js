@@ -794,14 +794,78 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         obj.headerShaded = !obj.headerShaded;
     }));
     menu.appendChild(document.createElement('hr'));
-    menu.appendChild(structuralItem("Ajouter colonne à droite", () => { /* ... */ }));
-    menu.appendChild(structuralItem("Ajouter ligne dessous", () => { /* ... */ }));
-    if (obj.rows[0].length > 1) menu.appendChild(structuralItem("Supprimer colonne", () => { /* ... */ }));
-    if (obj.rows.length > 1) menu.appendChild(structuralItem("Supprimer ligne", () => { /* ... */ }));
-    if (colIdx < obj.rows[rowIdx].length - 1) menu.appendChild(structuralItem("Fusionner à droite", () => { /* ... */ }));
-    if (typeof cellData === "object" && cellData.colspan > 1) menu.appendChild(structuralItem("Scinder cellule", () => { /* ... */ }));
+    menu.appendChild(structuralItem("Ajouter colonne à droite", () => { 
+        obj.rows.forEach(row => row.splice(colIdx + 1, 0, ""));
+        const w = obj.colWidths[colIdx];
+        obj.colWidths.splice(colIdx + 1, 0, w);
+	}));
+    menu.appendChild(structuralItem("Ajouter ligne dessous", () => { 
+        let newRow = obj.rows[0].map(() => "");
+        obj.rows.splice(rowIdx + 1, 0, newRow);
+	}));
+    if (obj.rows[0].length > 1) { 
+        menu.appendChild(structuralItem("Supprimer colonne", () => {
+            for (let r = 0; r < obj.rows.length; r++) {
+                let cd = obj.rows[r][colIdx];
+                // fusion à gauche
+                if (cd === null) {
+                    for (let k = colIdx - 1; k >= 0; k--) {
+                        let lc = obj.rows[r][k];
+                        if (typeof lc === "object" && lc.colspan > 1) {
+                            lc.colspan--;
+                            obj.rows[r][colIdx] = "";
+                            break;
+                        }
+                    }
+                }
+                // début fusion
+                else if (typeof cd === "object" && cd.colspan > 1) {
+                    let text = cd.text || "";
+                    obj.rows[r][colIdx] = text;
+                    for (let k = 1; k < cd.colspan; k++) {
+                        if (obj.rows[r][colIdx + k] !== undefined) obj.rows[r][colIdx + k] = "";
+                    }
+                }
+            }
+            obj.rows.forEach(row => row.splice(colIdx, 1));
+		}));
+	}
+    // Supprimer ligne
+    if (obj.rows.length > 1) {
+        menu.appendChild(structuralItem("Supprimer ligne", () => {
+            obj.rows.splice(rowIdx, 1);
+        }));
+    }
+
+    // Fusionner à droite
+    if (colIdx < obj.rows[rowIdx].length - 1) {
+        menu.appendChild(structuralItem("Fusionner à droite", () => {
+            let cur = obj.rows[rowIdx][colIdx];
+            let next = obj.rows[rowIdx][colIdx + 1];
+            if (typeof cur === "object") {
+                cur.colspan = (cur.colspan || 1) + (next && next.colspan ? next.colspan : 1);
+                cur.text += " " + (typeof next === "object" ? next.text : next);
+            } else {
+                obj.rows[rowIdx][colIdx] = {
+                    text: cur + " " + (typeof next === "object" ? next.text : next),
+                    colspan: 2
+                };
+            }
+            obj.rows[rowIdx].splice(colIdx + 1, 1);
+        }));
+    }
+
+    // Scinder cellule
+    if (typeof cellData === "object" && cellData.colspan > 1) {
+        menu.appendChild(structuralItem("Scinder cellule", () => {
+            let n = cellData.colspan;
+            obj.rows[rowIdx][colIdx] = cellData.text || "";
+            for (let i = 1; i < n; i++) obj.rows[rowIdx].splice(colIdx + 1, 0, "");
+        }));
+    }
 
     document.body.appendChild(menu);
+	// ferme si clic à l’extérieur
     document.addEventListener('mousedown', function hideMenu(ev) {
         if (!menu.contains(ev.target)) {
             menu.remove();
@@ -811,5 +875,118 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
 }
 
 // Dummy paginate functions if they are complex and not directly related to numbering for now
-function paginateObjects(idx) { if (idx < 2) return; setTimeout(() => { /* ... complex logic ... */ }, 30); }
-function paginatePage(idx) { if (idx < 2) return; setTimeout(() => { /* ... complex logic ... */ }, 30); }
+function paginateObjects(idx) {
+    // Pas de pagination sur la couverture ou sommaire
+    if (idx < 2) return;
+    setTimeout(() => {
+        const pageDivs = document.querySelectorAll('.page');
+        let currentPageIdx = idx;
+        let hasPaginated = false;
+
+        while (currentPageIdx < pages.length) {
+            const currentPage = pages[currentPageIdx];
+            const thisPageDiv = pageDivs[currentPageIdx];
+            if (!thisPageDiv) break;
+            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
+            if (!chapterObjs) break;
+
+            const pxLimite = 25 * 37.8; // 25 cm en px
+            let cumulated = 0;
+            let splitAt = -1;
+            const children = Array.from(chapterObjs.children);
+
+            for (let i = 0; i < children.length; i++) {
+                let h = children[i].offsetHeight;
+                if (cumulated + h > pxLimite) {
+                    splitAt = i;
+                    break;
+                }
+                cumulated += h;
+            }
+            if (splitAt > -1) {
+                // Découpage : les objets [0..splitAt-1] restent, le reste va à la page suivante
+                let overflowObjects = currentPage.objects.slice(splitAt);
+                currentPage.objects = currentPage.objects.slice(0, splitAt);
+
+                // Crée ou utilise la page suivante
+                let nextPage = pages[currentPageIdx + 1];
+                if (!nextPage || nextPage.type !== currentPage.type) {
+                    nextPage = { type: currentPage.type, chapterTitle: "", objects: [] };
+                    pages.splice(currentPageIdx + 1, 0, nextPage);
+                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
+                }
+                // Ajoute les objets à la suite des objets de la page suivante
+                nextPage.objects = overflowObjects.concat(nextPage.objects);
+                hasPaginated = true;
+                renderDocument();
+                // Relance la pagination sur la page suivante (si elle aussi déborde)
+                currentPageIdx++;
+            } else {
+                break;
+            }
+        }
+        // Après pagination, supprime les pages vides inutiles (hors garde/sommaire)
+        if (hasPaginated) {
+            for (let i = pages.length - 1; i >= 2; i--) {
+                if (!pages[i].objects || pages[i].objects.length === 0) {
+                    pages.splice(i, 1);
+                    orientation.splice(i, 1);
+                }
+            }
+            renderDocument();
+        }
+    }, 30);
+}
+
+function paginatePage(idx) {
+    // Empêche la pagination sur page de garde ou sommaire
+    if (idx < 2) return;
+
+    setTimeout(() => {
+        const pageDivs = document.querySelectorAll('.page');
+        let currentPageIdx = idx;
+
+        // On boucle sur chaque page à partir de idx
+        while (currentPageIdx < pages.length) {
+            const currentPage = pages[currentPageIdx];
+            const thisPageDiv = pageDivs[currentPageIdx];
+            if (!thisPageDiv) break;
+            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
+            if (!chapterObjs) break;
+
+            const pxLimite = 25 * 37.8;
+            let cumulated = 0;
+            let splitAt = -1;
+            const children = Array.from(chapterObjs.children);
+            for (let i = 0; i < children.length; i++) {
+                let h = children[i].offsetHeight;
+                if (cumulated + h > pxLimite) {
+                    splitAt = i;
+                    break;
+                }
+                cumulated += h;
+            }
+            if (splitAt > -1) {
+                // Découpe ici : les objets [0..splitAt-1] restent dans la page
+                // le reste passe à la page suivante
+                let overflowObjects = currentPage.objects.slice(splitAt);
+                currentPage.objects = currentPage.objects.slice(0, splitAt);
+
+                // Nouvelle page si besoin
+                let nextPage = pages[currentPageIdx + 1];
+                if (!nextPage || nextPage.type !== currentPage.type) {
+                    nextPage = { type: currentPage.type, chapterTitle: "", objects: [] };
+                    pages.splice(currentPageIdx + 1, 0, nextPage);
+                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
+                }
+                // On place les objets qui débordent en tête de la page suivante
+                nextPage.objects = overflowObjects.concat(nextPage.objects);
+                renderDocument();
+                // On continue sur la page suivante (si elle déborde elle aussi)
+                currentPageIdx++;
+            } else {
+                break; // Rien à paginer, on s'arrête
+            }
+        }
+    }, 30);
+}
