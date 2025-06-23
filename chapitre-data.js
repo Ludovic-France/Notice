@@ -1,13 +1,13 @@
 const ChapitreData = [
-    { "id": "introduction", "titre": "Introduction" },
-    { "id": "description", "titre": "Description Générale" },
-    { "id": "safety", "titre": "Consignes de Sécurité" },
-    { "id": "operation", "titre": "Fonctionnement", "subchapters": [
-        { "id": "op_manual", "titre": "Mode Manuel" },
-        { "id": "op_auto", "titre": "Mode Automatique" }
+    { "id": "introduction", "H1": "Introduction" },
+    { "id": "description", "H1": "Description Générale" },
+    { "id": "safety", "H1": "Consignes de Sécurité" },
+    { "id": "operation", "H1": "Fonctionnement", "subchapters": [
+        { "id": "op_manual", "H2": "Mode Manuel" },
+        { "id": "op_auto", "H2": "Mode Automatique" }
     ]},
-    { "id": "maintenance", "titre": "Maintenance" },
-    { "id": "troubleshooting", "titre": "Dépannage" },
-    { "id": "annexes", "titre": "Annexes" }
+    { "id": "maintenance", "H1": "Maintenance" },
+    { "id": "troubleshooting", "H1": "Dépannage" },
+    { "id": "annexes", "H1": "Annexes" }
 
 ];
