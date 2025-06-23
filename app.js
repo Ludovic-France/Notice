@@ -113,13 +113,28 @@ function initDocument() {
     orientation.push("portrait");
     // Pages par chapitre
     if (typeof ChapitreData !== "undefined") {
-        ChapitreData.forEach(chap => {
-                        pages.push({
-                                type: 'chapter',
-                                chapterTitle: chap.titre, // Keep original title for data model
-                                objects: [{ type: "chapterTitle", text: chap.titre, originalText: chap.titre }] // Store original text
-                        });
-            orientation.push("portrait");
+        ChapitreData.forEach(chapEntry => {
+            let pageObjects = [];
+            if (chapEntry.H1) {
+                pageObjects.push({ type: "h1", text: chapEntry.H1, originalText: chapEntry.H1, id: chapEntry.id });
+            }
+            // Handle nested H2s if defined with a key like "H2_items"
+            if (chapEntry.H2_items && Array.isArray(chapEntry.H2_items)) {
+                chapEntry.H2_items.forEach(h2Entry => {
+                    if (h2Entry.H2) {
+                        pageObjects.push({ type: "h2", text: h2Entry.H2, originalText: h2Entry.H2, id: h2Entry.id });
+                    }
+                });
+            }
+            // Add more specific H3, H4 handling if your data structure has them at this initial level
+
+            if (pageObjects.length > 0) {
+                pages.push({
+                    type: 'chapter', // Keep a general page type, or adapt if needed
+                    objects: pageObjects
+                });
+                orientation.push("portrait");
+            }
         });
     }
     renderDocument();
@@ -130,10 +145,6 @@ function initDocument() {
 function renderDocument() {
     const container = document.getElementById('pages-container');
     container.innerHTML = '';
-    // Reset global counters before each full render if they were used by renderPage directly
-    // This is now handled by updateAllChapterNumbers
-    // chapterCounter = 0;
-    // hCounters.fill(0);
 
     pages.forEach((page, idx) => {
         let div = renderPage(page, idx); // récupère le conteneur
@@ -520,26 +531,23 @@ function renderPage(page, idx) {
 
 // ---- Nouvelle fonction pour mettre à jour tous les numéros et le sommaire ----
 function updateAllChapterNumbers() {
-    let currentChapterCounter = 0;
-    let currentHCounters = [0, 0, 0, 0]; // [H1, H2, H3, H4]
+    let hCounters = [0, 0, 0, 0]; // [H1, H2, H3, H4] - Reset for each full update
 
     pages.forEach((page, pageIdx) => {
         if (pageIdx >= 2 && Array.isArray(page.objects)) { // Start from page 2 (after cover and TOC)
             page.objects.forEach(obj => {
-                // Clear previous prefix
-                obj.calculatedPrefix = "";
+                obj.calculatedPrefix = ""; // Clear previous prefix
 
-                if (obj.type === "chapterTitle") {
-                    currentChapterCounter++;
-                    currentHCounters.fill(0);
-                    obj.calculatedPrefix = `${currentChapterCounter}. `;
-                } else if (/^h[1-4]$/.test(obj.type)) {
+                if (/^h[1-4]$/.test(obj.type)) {
                     const level = parseInt(obj.type[1]) - 1; // H1→0, H2→1…
-                    currentHCounters[level]++;
+
+                    hCounters[level]++;
+                    // Reset counters for subsequent levels
                     for (let k = level + 1; k < 4; k++) {
-                        currentHCounters[k] = 0;
+                        hCounters[k] = 0;
                     }
-                    obj.calculatedPrefix = currentHCounters.slice(0, level + 1).join(".") + ". ";
+                    // Construct prefix: e.g., H1: "1.", H2: "1.1.", H3: "1.1.1."
+                    obj.calculatedPrefix = hCounters.slice(0, level + 1).join(".") + ". ";
                 }
             });
         }
@@ -551,62 +559,60 @@ function updateAllChapterNumbers() {
 
 // ---- Nouvelle fonction pour générer uniquement le Sommaire ----
 function generateTableOfContents() {
+    // Ensure the TOC container <ol> exists. renderPage(page, 1) should have created it.
     const tocOl = document.getElementById("table-of-contents");
     if (!tocOl) {
-        // If TOC page hasn't been rendered yet, or element is missing, try to find/create.
-        // This might happen if updateAllChapterNumbers is called before initial full render of TOC page.
-        let tocContentDiv = document.querySelector('#pages-container .page:nth-child(2) .content'); // Page 2 content
-        if (tocContentDiv) {
-            let existingOl = tocContentDiv.querySelector("#table-of-contents");
-            if (existingOl) {
-                 existingOl.innerHTML = ""; // Clear existing
-            } else {
-                // Fallback: if somehow the OL is not there, recreate (should ideally not happen if renderPage(page,1) ran)
-                let tocContainer = document.getElementById("table-of-contents-container");
-                if (!tocContainer && tocContentDiv) { // if even container is missing
-                    tocContainer = document.createElement("div");
-                    tocContainer.id = "table-of-contents-container";
-                    tocContentDiv.appendChild(tocContainer);
-                }
-                if (tocContainer) {
-                    let newOl = document.createElement("ol");
-                    newOl.id = "table-of-contents";
-                    newOl.style.fontSize = "1.3em";
-                    newOl.style.margin   = "0 0 0 24px";
-                    newOl.style.padding  = "0";
-                    tocContainer.appendChild(newOl);
-                    // tocOl = newOl; // This assignment won't work due to scope, but the element is in DOM
-                } else {
-                    console.error("TOC container could not be found or created.");
-                    return;
-                }
-            }
-        } else {
-             console.error("TOC page content area not found.");
-             return;
+        console.error("Table of Contents OL element (#table-of-contents) not found. Page 2 (TOC) might not have rendered its structure correctly.");
+        // Attempt to find the container and create it if absolutely necessary (defensive)
+        let tocPageContent = null;
+        const pageDivs = document.querySelectorAll('.page');
+        if (pageDivs.length > 1) {
+            tocPageContent = pageDivs[1].querySelector('.content'); // Page at index 1 is the TOC
         }
+
+        if (tocPageContent && !tocPageContent.querySelector("#table-of-contents")) {
+            const newOl = document.createElement("ol");
+            newOl.id = "table-of-contents";
+            newOl.style.fontSize = "1.3em";
+            newOl.style.margin = "0 0 0 24px";
+            newOl.style.padding = "0";
+            tocPageContent.appendChild(newOl);
+            // tocOl = newOl; // Re-assigning here won't update the original tocOl from getElementById
+        } else if (!tocPageContent) {
+            console.error("TOC page content container not found.");
+            return; // Cannot proceed
+        }
+        // If we had to create it, tocOl will still be null here, so re-fetch
+        const finalTocOlAfterAttemptedCreation = document.getElementById("table-of-contents");
+        if (!finalTocOlAfterAttemptedCreation) {
+            console.error("Failed to find or create TOC OL element.");
+            return;
+        }
+        finalTocOlAfterAttemptedCreation.innerHTML = ""; // Clear if we just created it or found it empty
+        // The actual population will happen below using the re-fetched tocOl or the initially found one.
+    } else {
+        tocOl.innerHTML = ""; // Clear existing items if found initially
     }
 
-    // It's safer to re-fetch the element after potential creation/clearing
+    // Re-fetch tocOl to be absolutely sure, especially if it was created dynamically above
     const finalTocOl = document.getElementById("table-of-contents");
     if (!finalTocOl) {
-        console.error("Table of Contents OL element still not found after attempting creation.");
+        console.error("Table of Contents OL element could not be definitively referenced.");
         return;
     }
-    finalTocOl.innerHTML = ""; // Clear existing items
+    // If it was found but empty (e.g. after .innerHTML = ""), this is fine.
 
-    for (let i = 2; i < pages.length; i++) { // Start from page 2
+    for (let i = 2; i < pages.length; i++) { // Start from page 2 (actual content pages)
         const p = pages[i];
         if (Array.isArray(p.objects)) {
             p.objects.forEach(obj => {
-                if ((obj.type === "chapterTitle" || /^h[1-4]$/.test(obj.type)) && (obj.originalText || obj.text)) {
+                // Only include H1-H4 in TOC
+                if (/^h[1-4]$/.test(obj.type) && (obj.originalText || obj.text)) {
                     let li = document.createElement("li");
-                    // Use the calculated prefix and the original text
-                    li.innerText = (obj.calculatedPrefix || "") + (obj.originalText || obj.text);
+                    li.innerText = (obj.calculatedPrefix || "") + (obj.originalText || obj.text || "");
 
-                    if (obj.type !== "chapterTitle" && /^h[1-4]$/.test(obj.type)) {
-                        li.style.marginLeft = `${(parseInt(obj.type[1]) - 1) * 24}px`;
-                    }
+                    const level = parseInt(obj.type[1]); // 1 for H1, 2 for H2, etc.
+                    li.style.marginLeft = `${(level - 1) * 20}px`; // Indent based on H level (e.g., 0px for H1, 20px for H2)
                     finalTocOl.appendChild(li);
                 }
             });
