@@ -1,12 +1,42 @@
 const ChapitreData = [
-    { "id": "introduction", "H1": "Introduction" },
-    { "id": "description", "H1": "Description Générale" },
-    { "id": "safety", "H1": "Consignes de Sécurité" },
-    { "id": "operation", "H1": "Fonctionnement", "H2_items": [
-        { "id": "op_manual", "H2": "Mode Manuel" },
-        { "id": "op_auto", "H2": "Mode Automatique" }
+    { "id": "introduction", "H1": "Introduction", "H2_items": [
+        { "id": "1", "H2": "Prise en main" },
+        { "id": "2", "H2": "Groupe cible" },
+        { "id": "3", "H2": "Symbolisation utilisée" }
     ]},
-    { "id": "maintenance", "H1": "Maintenance" },
-    { "id": "troubleshooting", "H1": "Dépannage" },
-    { "id": "annexes", "H1": "Annexes" }
+    { "id": "safety", "H1": "Consignes de Sécurité", "H2_items": [
+        { "id": "1", "H2": "Information générale", "H3_items": [
+			{ "id": "11", "H3": "Utilisation prévue" },
+			{ "id": "21", "H3": "Mauvais usage" }
+		]},
+        { "id": "2", "H2": "Risque résiduel", "H3_items": [
+			{ "id": "12", "H3": "Risque" },
+			{ "id": "22", "H3": "Précaution" },
+			{ "id": "32", "H3": "Substance et émission" },
+			{ "id": "42", "H3": "Dispositifs médicaux" }
+		]},
+        { "id": "3", "H2": "Equipement de protection individuelle" },
+		{ "id": "4", "H2": "Situations d'urgence", "H3_items": [
+			{ "id": "14", "H3": "Panne / Accident" },
+			{ "id": "24", "H3": "Incendie" },
+			{ "id": "34", "H3": "Fuite de substance" }
+		]},
+    ]},
+    { "id": "description", "H1": "Description de l'Ensemble de la Machine", "H2_items": [
+        { "id": "1", "H2": "Description graphique " },
+        { "id": "2", "H2": "Usage prévu" },
+        { "id": "3", "H2": "Principales spécifications" }
+    ]},
+    { "id": "vie", "H1": "Cycle de vie de la machine" },
+    { "id": "transport", "H1": "Transport, manutention et stockage" },
+    { "id": "mes", "H1": "Assemblage, Installation et Mise en Service" },
+    { "id": "setup", "H1": "Réglage fabricant" },
+    { "id": "fonctionnement", "H1": "Fonctionnement" },
+    { "id": "changement", "H1": "Changement de Produit ou de Capacité" },
+    { "id": "inspection", "H1": "Inspection, Essais et Maintenance" },
+    { "id": "nettoyage", "H1": "Nettoyage et Désinfection" },
+    { "id": "defaut", "H1": "Recherche de Défauts/Pannes et Réparations" },
+    { "id": "demontage", "H1": "Démontage, Mise hors Service et Mise au Rebut" },
+    { "id": "annexe", "H1": "Annexe" },
+    { "id": "declaration", "H1": "Déclaration de conformité" }
 ];
