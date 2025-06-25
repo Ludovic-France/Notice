@@ -8,6 +8,36 @@ const NUM_REF = "900000"; // Modifiable uniquement page 1
 const COLOR_DROP = "#eee";
 let isResizingCol = false;
 
+
+
+function normalizeColWidths(tableObj) {
+    if (!tableObj.colWidths || tableObj.colWidths.length === 0) return;
+
+    let currentSum = 0;
+    // Utiliser une copie pour calculer la somme pour éviter les problèmes avec parseFloat sur des valeurs déjà modifiées
+    const widthsToSum = [...tableObj.colWidths];
+    widthsToSum.forEach(w => currentSum += parseFloat(w));
+
+    if (currentSum > 0) {
+        const factor = 100 / currentSum;
+        let runningTotal = 0;
+        for (let i = 0; i < tableObj.colWidths.length - 1; i++) {
+            const newWidth = parseFloat(widthsToSum[i]) * factor; // Utiliser la largeur originale pour le calcul
+            tableObj.colWidths[i] = newWidth.toFixed(2) + "%";
+            runningTotal += newWidth; 
+        }
+        tableObj.colWidths[tableObj.colWidths.length - 1] = Math.max(0, (100 - runningTotal)).toFixed(2) + "%";
+    } else if (tableObj.colWidths.length > 0) { 
+        const equalShare = (100 / tableObj.colWidths.length);
+        let runningTotal = 0;
+        for (let i = 0; i < tableObj.colWidths.length - 1; i++) {
+            tableObj.colWidths[i] = equalShare.toFixed(2) + "%";
+            runningTotal += equalShare;
+        }
+        tableObj.colWidths[tableObj.colWidths.length - 1] = Math.max(0, (100 - runningTotal)).toFixed(2) + "%";
+    }
+}
+
 // Pour les chapitres (chapterTitle)
 // let chapterCounter = 0; // Commented out: No longer global for on-the-fly rendering
 
@@ -341,7 +371,7 @@ function renderPage(page, idx) {
             else if (type === "text")
                 newObj = { type: "text", html: "Zone de texte" };
             else if (type === "table")
-                newObj = { type: "table", rows: [["", ""], ["", ""]] };
+                newObj = { type: "table", rows: [["", "", ""], ["", "", ""], ["", "", ""]] };
             if (!newObj) return;
             page.objects.unshift(newObj);
             renderDocument(); // Re-render, numbering will be updated by manual button
@@ -375,96 +405,211 @@ function renderPage(page, idx) {
                 el.innerHTML = obj.html || "";
                 el.addEventListener('blur', function() { obj.html = el.innerHTML; });
             } else if (obj.type === "table") {
-                if (obj.headerShaded === undefined) obj.headerShaded = false;
-                el = document.createElement('div');
-                el.className = "table-container";
-                let table = document.createElement('table');
-                table.className = "page-table";
-                table.style.width = "100%";
-                table.style.tableLayout = "fixed";
-                let firstRow = obj.rows.find(r => r && r.length);
-                let nbCols = firstRow ? firstRow.length : 2;
-                if (!obj.colWidths || obj.colWidths.length !== nbCols) {
-                    obj.colWidths = Array(nbCols).fill((100/nbCols) + "%");
-                }
-                let colgroup = document.createElement('colgroup');
-                for (let c = 0; c < nbCols; c++) {
-                    let col = document.createElement('col');
-                    col.style.width = obj.colWidths[c];
-                    colgroup.appendChild(col);
-                }
-                table.appendChild(colgroup);
-                let tbody = document.createElement('tbody');
-                obj.rows.forEach((row, i) => {
-                    let tr = document.createElement('tr');
-                    if (i === 0 && obj.headerShaded) {
-                        tr.style.backgroundColor = "#f5f5f5";
-                        tr.style.fontWeight = "bold";
-                    }
-                    for (let j = 0; j < (row ? row.length : 0); j++) {
-                        let cellData = row[j];
-                        if (cellData === null) continue;
-                        let td = document.createElement('td');
-                        td.contentEditable = "true";
-                        td.style.verticalAlign = "middle";
-                        td.style.overflow = "hidden";
-                        td.style.position = "relative";
-                        td.addEventListener('focus', () => {
-                            const range = document.createRange();
-                            range.selectNodeContents(td);
-                            range.collapse(true);
-                            const sel = window.getSelection();
-                            sel.removeAllRanges();
-                            sel.addRange(range);
-                        });
-                        if (typeof cellData === "object" && cellData.image) {
-                            let img = document.createElement('img');
-                            img.src = cellData.image;
-                            img.style.width = "100%";
-                            img.style.height = "100%";
-                            img.style.objectFit = "contain";
-                            td.appendChild(img);
-                        } else {
-                            let text = typeof cellData === "object" ? cellData.text : cellData;
-                            td.innerText = text;
-                        }
-                        let colspan = (typeof cellData === "object" && cellData.colspan) ? cellData.colspan : 1;
-                        let align = (typeof cellData === "object" && cellData.align) ? cellData.align : "left";
-                        td.colSpan = colspan;
-                        td.style.textAlign = align;
-                        td.addEventListener('blur', () => {
-                            if (typeof cellData === "object") {
-                                if (!cellData.image) cellData.text = td.innerText;
-                            } else {
-                                obj.rows[i][j] = td.innerText;
-                            }
-                        });
-                        td.addEventListener('paste', e => { /* ... paste logic ... */ });
-                        td.addEventListener('dragover', e => e.preventDefault());
-                        td.addEventListener('drop', e => { /* ... drop logic ... */ });
-                        td.addEventListener('contextmenu', e => {
-                            e.preventDefault();
-                            showTableMenu(e, obj, i, j);
-                            setTimeout(() => td.focus(), 0);
-                        });
-                        if (i === 0 && j < nbCols - 1) {
-                            let resizer = document.createElement('div');
-                            resizer.className = "col-resizer";
-                            Object.assign(resizer.style, { position: "absolute", top: "0", right: "-3px", width: "6px", height: "100%", cursor: "col-resize", zIndex: "10" });
-                            td.appendChild(resizer);
-                            resizer.addEventListener('mousedown', e_resizer => { /* ... resizer logic ... */ });
-                        }
-                        tr.appendChild(td);
-                        if (colspan > 1) {
-                            for (let k = 1; k < colspan; k++) obj.rows[i][j + k] = null;
-                            j += colspan - 1;
-                        }
-                    }
-                    tbody.appendChild(tr);
-                });
-                table.appendChild(tbody);
-                el.appendChild(table);
-            }
+				if (obj.headerShaded === undefined) obj.headerShaded = false;
+				el = document.createElement('div');
+				el.className = "table-container";
+
+				// Déterminer l'orientation de la page
+				let containerWidth = 710;
+				if (orientation[selectedPage] === "portrait") {
+					containerWidth = 710;
+				} else if (orientation[selectedPage] === "landscape") {
+					containerWidth = 1038;
+				}
+
+				let table = document.createElement('table');
+				table.className = "page-table";
+				table.style.width = containerWidth + "px";
+				table.style.maxWidth = containerWidth + "px";
+				table.style.tableLayout = "fixed";
+
+				let firstRow = obj.rows.find(r => r && r.length);
+				let nbCols = firstRow ? firstRow.length : 2;
+
+				if (!obj.colWidths || obj.colWidths.length !== nbCols) {
+					let defaultPx = containerWidth / nbCols;
+					obj.colWidths = Array(nbCols).fill(defaultPx);
+				} else {
+					let total = obj.colWidths.reduce((a, b) => a + b, 0);
+					let scale = containerWidth / total;
+					obj.colWidths = obj.colWidths.map(w => w * scale);
+				}
+
+				let colgroup = document.createElement('colgroup');
+				let accumulated = 0;
+				for (let c = 0; c < nbCols; c++) {
+					let col = document.createElement('col');
+					let width = Math.round(obj.colWidths[c]);
+					if (c === nbCols - 1) width = containerWidth - accumulated;
+					else accumulated += width;
+					obj.colWidths[c] = width;
+					col.style.width = width + "px";
+					colgroup.appendChild(col);
+				}
+				table.appendChild(colgroup);
+				let tbody = document.createElement('tbody');
+				obj.rows.forEach((row, i) => {
+					let tr = document.createElement('tr');
+					if (i === 0 && obj.headerShaded) {
+						tr.style.backgroundColor = "#f5f5f5";
+						tr.style.fontWeight = "bold";
+					}
+					for (let j = 0; j < (row ? row.length : 0); j++) {
+						let cellData = row[j];
+						if (cellData === null) continue;
+						let td = document.createElement('td');
+						td.contentEditable = "true";
+						td.style.verticalAlign = "middle";
+						td.style.overflow = "hidden";
+						td.style.position = "relative";
+						td.addEventListener('focus', () => {
+							const range = document.createRange();
+							range.selectNodeContents(td);
+							range.collapse(true);
+							const sel = window.getSelection();
+							sel.removeAllRanges();
+							sel.addRange(range);
+						});
+						if (typeof cellData === "object" && cellData.image) {
+							let img = document.createElement('img');
+							img.src = cellData.image;
+							img.style.width = "100%";
+							img.style.height = "100%";
+							img.style.objectFit = "contain";
+							td.appendChild(img);
+						} else {
+							let text = typeof cellData === "object" ? cellData.text : cellData;
+							td.innerText = text;
+						}
+						let colspan = (typeof cellData === "object" && cellData.colspan) ? cellData.colspan : 1;
+						let align = (typeof cellData === "object" && cellData.align) ? cellData.align : "left";
+						td.colSpan = colspan;
+						td.style.textAlign = align;
+						td.addEventListener('blur', () => {
+							if (typeof cellData === "object") {
+								if (!cellData.image) cellData.text = td.innerText;
+							} else {
+								obj.rows[i][j] = td.innerText;
+							}
+						});
+						td.addEventListener('paste', e => {
+							e.preventDefault();
+							for (let it of e.clipboardData.items) {
+								if (it.kind === "file" && it.type.startsWith("image/")) {
+									let file = it.getAsFile();
+									let reader = new FileReader();
+									reader.onload = () => {
+										td.innerHTML = "";
+										let img = document.createElement('img');
+										img.src = reader.result;
+										img.style.width = "100%";
+										img.style.height = "100%";
+										img.style.objectFit = "contain";
+										td.appendChild(img);
+										if (typeof cellData === "object") cellData.image = reader.result;
+										else obj.rows[i][j] = { image: reader.result };
+									};
+									reader.readAsDataURL(file);
+									break;
+								}
+							}
+						});
+						td.addEventListener('dragover', e => e.preventDefault());
+						td.addEventListener('drop', e => {
+							e.preventDefault();
+							if (e.dataTransfer.files.length) {
+								let file = e.dataTransfer.files[0];
+								if (file.type.startsWith("image/")) {
+									let reader = new FileReader();
+									reader.onload = () => {
+										td.innerHTML = "";
+										let img = document.createElement('img');
+										img.src = reader.result;
+										img.style.width = "100%";
+										img.style.height = "100%";
+										img.style.objectFit = "contain";
+										td.appendChild(img);
+										if (typeof cellData === "object") cellData.image = reader.result;
+										else obj.rows[i][j] = { image: reader.result };
+									};
+									reader.readAsDataURL(file);
+								}
+							} else {
+								let url = e.dataTransfer.getData('text/uri-list')
+									|| e.dataTransfer.getData('text/plain');
+								if (url.startsWith("http")) {
+									fetch(url).then(r => r.blob()).then(blob => {
+										let reader = new FileReader();
+										reader.onload = () => {
+											td.innerHTML = "";
+											let img = document.createElement('img');
+											img.src = reader.result;
+											img.style.width = "100%";
+											img.style.height = "100%";
+											img.style.objectFit = "contain";
+											td.appendChild(img);
+											if (typeof cellData === "object") cellData.image = reader.result;
+											else obj.rows[i][j] = { image: reader.result };
+										};
+										reader.readAsDataURL(blob);
+									});
+								}
+							}
+						});
+						td.addEventListener('contextmenu', e => {
+							e.preventDefault();
+							showTableMenu(e, obj, i, j);
+							setTimeout(() => td.focus(), 0);
+						});
+						if (i === 0 && j < nbCols - 1) {
+							let resizer = document.createElement('div');
+							resizer.className = "col-resizer";
+							Object.assign(resizer.style, {
+								position: "absolute", top: "0", right: "-3px", width: "6px",
+								height: "100%", cursor: "col-resize", zIndex: "10"
+							});
+							td.appendChild(resizer);
+							resizer.addEventListener('mousedown', e => {
+								e.preventDefault();
+								const startX = e.pageX;
+								const leftC = colgroup.children[j];
+								const rightC = colgroup.children[j + 1];
+								const wL = parseFloat(obj.colWidths[j]);
+								const wR = parseFloat(obj.colWidths[j + 1]);
+								document.body.style.cursor = "col-resize";
+
+								function onMove(ev) {
+									let d = ev.pageX - startX;
+									let nl = wL + d, nr = wR - d;
+									if (nl < 30 || nr < 30) return;
+									obj.colWidths[j] = nl;
+									obj.colWidths[j + 1] = nr;
+									leftC.style.width = nl + "px";
+									rightC.style.width = nr + "px";
+								}
+
+								function onUp() {
+									document.removeEventListener('mousemove', onMove);
+									document.removeEventListener('mouseup', onUp);
+									document.body.style.cursor = "";
+								}
+
+								document.addEventListener('mousemove', onMove);
+								document.addEventListener('mouseup', onUp);
+							});
+						}
+						tr.appendChild(td);
+						if (colspan > 1) {
+							for (let k = 1; k < colspan; k++) obj.rows[i][j + k] = null;
+							j += colspan - 1;
+						}
+					}
+					tbody.appendChild(tr);
+				});
+				table.appendChild(tbody);
+				el.appendChild(table);
+			}
+
 
             if (el) {
                 el.setAttribute("draggable", "true");
@@ -506,7 +651,7 @@ function renderPage(page, idx) {
                     else if (type === "text")
                         newObj = { type: "text", html: "Zone de texte" };
                     else if (type === "table")
-                        newObj = { type: "table", rows: [["", ""], ["", ""]] };
+                        newObj = { type: "table", rows: [["", "", ""], ["", "", ""], ["", "", ""]] };
                     
                     if (newObj) {
                         page.objects.splice(oid + 1, 0, newObj);
@@ -584,9 +729,9 @@ function updateAllChapterNumbers() {
 // function generateTableOfContents() { ... }
 
 
-function showTableMenu(e, obj, rowIdx, colIdx) { /* ... unchanged ... */ }
-function paginateObjects(idx) { /* ... unchanged ... */ }
-function paginatePage(idx) { /* ... unchanged ... */ }
+// function showTableMenu(e, obj, rowIdx, colIdx) { /* ... unchanged ... */ }
+// function paginateObjects(idx) { /* ... unchanged ... */ }
+// function paginatePage(idx) { /* ... unchanged ... */ }
 
 function updateSelectionClass() {
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
@@ -760,7 +905,30 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
 
     menu._originTable = e.currentTarget.closest('.table-container').querySelector('table');
 
-    function alignItem(label, alignValue) { /* ... implementation ... */ }
+    function alignItem(label, align) {
+        let item = document.createElement('div');
+        item.innerText = label;
+        Object.assign(item.style, { padding:"6px 18px", cursor:"pointer" });
+        item.onmouseover = () => item.style.background = "#eef";
+        item.onmouseleave = () => item.style.background = "#fff";
+        item.onclick = () => {
+            // met à jour le modèle
+            let c = obj.rows[rowIdx][colIdx];
+            if (typeof c === "object") c.align = align;
+            else obj.rows[rowIdx][colIdx] = { text: c, align };
+
+            // applique DIRECTEMENT sur le <td>
+            const td = menu._originTable.rows[rowIdx].cells[colIdx];
+            td.style.textAlign = align;
+
+            // restore focus + caret
+            restoreCaret();
+
+            // ferme le menu
+            menu.remove();
+        };
+        menu.appendChild(item);
+    }
     alignItem("Aligner à gauche", "left");
     alignItem("Centrer horizontalement", "center");
     // ... other align items
@@ -803,7 +971,7 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         let newRow = obj.rows[0].map(() => "");
         obj.rows.splice(rowIdx + 1, 0, newRow);
 	}));
-    if (obj.rows[0].length > 1) { 
+   if (obj.rows[0].length > 1) {
         menu.appendChild(structuralItem("Supprimer colonne", () => {
             for (let r = 0; r < obj.rows.length; r++) {
                 let cd = obj.rows[r][colIdx];
@@ -828,8 +996,8 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
                 }
             }
             obj.rows.forEach(row => row.splice(colIdx, 1));
-		}));
-	}
+                }));
+        }
     // Supprimer ligne
     if (obj.rows.length > 1) {
         menu.appendChild(structuralItem("Supprimer ligne", () => {
