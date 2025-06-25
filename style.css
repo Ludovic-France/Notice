@@ -233,18 +233,21 @@ main#document {
 }
 .page .chapter-title.h2 {
     margin: 20px 0 10px 0;
+	font-style: italic;
     font-size: 18px;
     font-weight: bold;
     color: #342b94;
 }
 .page .chapter-title.h3 {
     margin: 20px 0 10px 0;
+	font-style: italic;
     font-size: 16px;
     font-weight: bold;
     color: #443ba4;
 }
 .page .chapter-title.h4 {
     margin: 20px 0 10px 0;
+	font-style: italic;
     font-size: 14px;
     font-weight: bold;
     color: #544bb4;
