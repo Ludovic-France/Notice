@@ -81,6 +81,12 @@ main#document {
     position: relative;
     padding: 24px 0;
 }
+
+#table-of-contents{
+	list-style-type: none;
+}
+
+
 #pages-container {
     display: flex;
     flex-direction: column;
@@ -178,11 +184,6 @@ main#document {
     max-width: 90%;
     max-height: 100%;
 }
-
-#table-of-contents{
-	list-style-type: none;
-}
-
 .rte-area {
     min-height: 36px;
     padding: 8px;
@@ -197,7 +198,8 @@ main#document {
     border-color: #4078d6 !important;
 }
 .page-table {
-    width: 100%;
+    /*width: 100%;*/
+	/*width: 793px;*/
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -220,6 +222,8 @@ main#document {
     position: relative;
     border: 1px solid #888;
     word-break: break-word;
+	/*word-wrap: break-word; */
+	/*overflow: hidden;*/
 }
 .page .chapter-title {
     margin: 20px 0 10px 0;
@@ -268,7 +272,7 @@ aside#controls button:hover {
     opacity: 0.5;
 }
 .table-container {
-    width: 100%;
+    /*width: 100%;*/
     margin: 10px 0;
 }
 .col-resizer {
