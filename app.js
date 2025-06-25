@@ -1145,7 +1145,7 @@ function exportCleanHTML() {
     <style>
         body {
             background: #fff;
-            font-family: 'Times New Roman', Times, serif;
+            font-family: 'Segoe UI', 'Arial', sans-serif; /* Police du mode édition */
             font-size: 12pt;
             margin: 0;
             padding: 0;
@@ -1232,7 +1232,7 @@ function exportCleanHTML() {
             width: auto !important;
         }
         .page .img-drop { /* Pour la page de garde si une image y est présente */
-            border: 1px solid #ccc !important;
+            border: none !important;
             min-height: 10cm; /* Hauteur indicative, sera remplie par l'image */
             max-height: 15cm;
             width: 100%;
@@ -1358,11 +1358,20 @@ function exportCleanHTML() {
                     } else if (obj.type === "text") {
                         html += `<div class="rte-area">${obj.html || ""}</div>`;
                     } else if (obj.type === "table") {
-                        html += `<table class="page-table">`;
-                        // Colgroup pour la largeur des colonnes si disponible et pertinent pour HTML statique
-                        // Pour la simplicité, on peut omettre colgroup ici, Word pourrait mieux gérer
-                        // ou il faudrait calculer les largeurs en % ou fixe si nécessaire pour l'export.
-                        // Pour l'instant, on laisse Word/Pandoc gérer la largeur des colonnes.
+                        let tableStyle = 'width:100%;'; // Par défaut, prend toute la largeur du conteneur .content
+                        html += `<table class="page-table" style="${tableStyle}">`;
+
+                        if (obj.colWidths && Array.isArray(obj.colWidths) && obj.colWidths.length > 0) {
+                            const totalWidthInPx = obj.colWidths.reduce((sum, w) => sum + parseFloat(w || 0), 0);
+                            if (totalWidthInPx > 0) {
+                                html += `<colgroup>`;
+                                obj.colWidths.forEach(widthInPx => {
+                                    const widthInPercent = (parseFloat(widthInPx || 0) / totalWidthInPx) * 100;
+                                    html += `<col style="width: ${widthInPercent.toFixed(2)}%;">`;
+                                });
+                                html += `</colgroup>`;
+                            }
+                        }
 
                         if (Array.isArray(obj.rows)) {
                             obj.rows.forEach((row, rowIndex) => {
