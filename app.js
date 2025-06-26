@@ -8,6 +8,11 @@ const NUM_REF = "900000"; // Modifiable uniquement page 1
 const COLOR_DROP = "#eee";
 let isResizingCol = false;
 
+// Fonction pour générer des ID uniques pour les nouveaux objets
+function generateUniqueId() {
+    return 'obj-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
 function normalizeColWidths(tableObj) {
     if (!tableObj.colWidths || tableObj.colWidths.length === 0) return;
 
@@ -36,12 +41,6 @@ function normalizeColWidths(tableObj) {
     }
 }
 
-// Pour les chapitres (chapterTitle)
-// let chapterCounter = 0; // Commented out: No longer global for on-the-fly rendering
-
-// Pour les titres H1→H4
-// const hCounters = [0, 0, 0, 0];  // Commented out: No longer global for on-the-fly rendering
-
 // ---- Initialisation principale au chargement ----
 window.onload = () => {
     initIcons();
@@ -50,53 +49,6 @@ window.onload = () => {
     // Initial calculation of chapter numbers and TOC
     updateAllChapterNumbers();
 };
-
-
-// /**
-//  * Calcule le numéro de chapitre (chapterTitle) pour la page pageIndex
-//  * en comptant toutes les occurences de chapterTitle dans pages[2..pageIndex]
-//  * et renvoie ce compteur (1-based).
-//  */
-// function chapterCounterForTOC(pages, pageIndex) { // Commented out: Logic moved to updateAllChapterNumbers
-//   let count = 0;
-//   for (let i = 2; i <= pageIndex && i < pages.length; i++) {
-//     const p = pages[i];
-//     if (!Array.isArray(p.objects)) continue;
-//     for (const obj of p.objects) {
-//       if (obj.type === "chapterTitle") {
-//         count++;
-//         // si c'est dans la page cible, on a notre numéro
-//         if (i === pageIndex) return count;
-//       }
-//     }
-//   }
-//   return count;
-// }
-
-// /**
-//  * Calcule le tableau [h1,h2,h3,h4] pour la page pageIndex / un titre Hn
-//  * en simulant le même incrément/réinit que dans le renderPage.
-//  */
-// function headingCountersForTOC(pages, pageIndex, targetObj) { // Commented out: Logic moved to updateAllChapterNumbers
-//   const counters = [0, 0, 0, 0];
-//   outer:
-//   for (let i = 2; i <= pageIndex && i < pages.length; i++) {
-//     const p = pages[i];
-//     if (!Array.isArray(p.objects)) continue;
-//     for (const obj of p.objects) {
-//       if (!/^h[1-4]$/.test(obj.type)) continue;
-//       const lvl = parseInt(obj.type[1], 10) - 1;
-//       // incrémente et reset des niveaux inférieurs
-//       counters[lvl]++;
-//       for (let k = lvl+1; k < 4; k++) counters[k] = 0;
-//       // si c'est l'objet qu'on veut numéroter (même référence)
-//       if (i === pageIndex && obj === targetObj) {
-//         break outer;
-//       }
-//     }
-//   }
-//   return counters;
-// }
 
 // ----- Initialisation de la collection de pictogrammes -----
 function initIcons() {
@@ -144,29 +96,55 @@ function initDocument() {
         ChapitreData.forEach(chapEntry => {
             let pageObjects = [];
             if (chapEntry.H1) {
-                pageObjects.push({ type: "h1", text: chapEntry.H1, originalText: chapEntry.H1, id: chapEntry.id });
+                pageObjects.push({
+                    type: "h1",
+                    text: chapEntry.H1,
+                    originalText: chapEntry.H1,
+                    id: chapEntry.id || generateUniqueId() // Assurer un ID
+                });
             }
             // Handle nested H2s if defined with a key like "H2_items"
             if (chapEntry.H2_items && Array.isArray(chapEntry.H2_items)) {
-                chapEntry.H2_items.forEach(h2Entry => {
+                chapEntry.H2_items.forEach(h2Entry => { // Boucle sur chaque item H2
                     if (h2Entry.H2) {
-                        pageObjects.push({ type: "h2", text: h2Entry.H2, originalText: h2Entry.H2, id: h2Entry.id });
+                        // Ajoute l'objet H2 à pageObjects
+                        pageObjects.push({
+                            type: "h2",
+                            text: h2Entry.H2,
+                            originalText: h2Entry.H2,
+                            id: h2Entry.id || generateUniqueId()
+                        });
+
+                        // Traiter les H3_items de CE h2Entry spécifique
+                        if (h2Entry.H3_items && Array.isArray(h2Entry.H3_items)) {
+                            h2Entry.H3_items.forEach(h3Entry => { // Boucle sur chaque item H3 sous le H2 courant
+                                if (h3Entry.H3) {
+                                    // Ajoute l'objet H3 à pageObjects
+                                    pageObjects.push({
+                                        type: "h3",
+                                        text: h3Entry.H3,
+                                        originalText: h3Entry.H3,
+                                        id: h3Entry.id || generateUniqueId()
+                                    });
+                                    // Pour les H4 enfants de H3, la logique serait imbriquée ici:
+                                    // if (h3Entry.H4_items && Array.isArray(h3Entry.H4_items)) { ... }
+                                }
+                            });
+                        }
                     }
                 });
             }
-            // Add more specific H3, H4 handling if your data structure has them at this initial level
-
             if (pageObjects.length > 0) {
                 pages.push({
-                    type: 'chapter', // Keep a general page type, or adapt if needed
+                    type: 'chapter',
                     objects: pageObjects
                 });
                 orientation.push("portrait");
             }
+			//console.log(pageObjects);
         });
     }
     renderDocument();
-    // updateAllChapterNumbers will be called by window.onload after initDocument
 }
 
 /* --------- Affichage du document complet ---------- */
@@ -175,11 +153,11 @@ function renderDocument() {
     container.innerHTML = '';
 
     pages.forEach((page, idx) => {
-        let div = renderPage(page, idx); // récupère le conteneur
+        let div = renderPage(page, idx);
         div.onclick = (e) => {
             selectedPage = idx;
             updateSelectionClass();
-            e.stopPropagation(); // évite sélection multiple
+            e.stopPropagation();
         };
         if (idx === selectedPage) div.classList.add("selected");
         container.appendChild(div);
@@ -189,20 +167,16 @@ function renderDocument() {
 
 /* --------- Affichage d'une page ---------- */
 function renderPage(page, idx) {
-    // Conteneur principal de la page
     let div = document.createElement('div');
     div.className = "page";
     if (orientation[idx] === "landscape") div.classList.add("landscape");
 
-    // ---- En-tête ----
     let header = document.createElement('div');
     header.className = "header";
-
     let logo = document.createElement('img');
     logo.className = "logo";
     logo.src = (typeof logoData !== "undefined" ? logoData.url : "");
     header.appendChild(logo);
-
     let docTitle = document.createElement('div');
     docTitle.className = "doc-title";
     if (idx === 0) {
@@ -216,7 +190,6 @@ function renderPage(page, idx) {
         docTitle.innerText = pages[0].docTitle || "Titre du document";
     }
     header.appendChild(docTitle);
-
     let revBox = document.createElement('div');
     revBox.className = "revision";
     revBox.innerHTML = `
@@ -235,7 +208,7 @@ function renderPage(page, idx) {
     let content = document.createElement('div');
     content.className = "content";
 
-    if (idx === 0) { // Page de Garde
+    if (idx === 0) {
         let title = document.createElement('div');
         title.contentEditable = "true";
         title.style.fontSize = "30pt";
@@ -267,7 +240,7 @@ function renderPage(page, idx) {
                 let reader = new FileReader();
                 reader.onload = evt => {
                     page.img = evt.target.result;
-                    renderDocument(); // Could potentially call updateAllChapterNumbers if structure changes affect numbering
+                    renderDocument();
                 };
                 reader.readAsDataURL(file);
             }
@@ -286,7 +259,7 @@ function renderPage(page, idx) {
                         img.style.maxWidth  = '100%';
                         img.style.maxHeight = '100%';
                         imgDrop.appendChild(img);
-                        page.img = reader.result; // Save pasted image
+                        page.img = reader.result;
                     };
                     reader.readAsDataURL(file);
                     return;
@@ -305,7 +278,7 @@ function renderPage(page, idx) {
                             img.style.maxWidth  = '100%';
                             img.style.maxHeight = '100%';
                             imgDrop.appendChild(img);
-                            page.img = reader.result; // Save pasted image from URL
+                            page.img = reader.result;
                         };
                         reader.readAsDataURL(blob);
                     })
@@ -313,7 +286,6 @@ function renderPage(page, idx) {
             }
         });
         content.appendChild(imgDrop);
-		// Ajout du bloc Constructeur	
 		let constructeurBlock = document.createElement('div');
 		constructeurBlock.className = "constructeur-info";
 		constructeurBlock.style.border = "2px solid #000";
@@ -322,20 +294,15 @@ function renderPage(page, idx) {
 		constructeurBlock.style.fontSize = "12pt";
 		constructeurBlock.style.textAlign = "left";
 		constructeurBlock.innerHTML = "<b>Constructeur : APA <br>Adresse :</b> 292 Rue de l'Epinette, 76320 CAUDEBEC Lès ELBEUF <br>☎️ +33 2.32.96.26.60";
-
 		content.appendChild(constructeurBlock);
-    } else if (idx === 1) { // Sommaire
-        // The TOC is now generated by generateTableOfContents(), called by updateAllChapterNumbers()
-        // This section will just create the container for the TOC.
+    } else if (idx === 1) {
         let tocOl = document.createElement("ol");
         tocOl.id = "table-of-contents";
-        tocOl.style.fontSize = "1.3em";
+        tocOl.style.fontSize = "1.1em";
         tocOl.style.margin   = "0 0 0 24px";
         tocOl.style.padding  = "0";
-
-        // Populate TOC directly here
         let itemsAddedToTOC = 0;
-        for (let i = 2; i < pages.length; i++) { // Start from page 2 (actual content pages)
+        for (let i = 2; i < pages.length; i++) {
             const p = pages[i];
             if (Array.isArray(p.objects)) {
                 p.objects.forEach(obj => {
@@ -343,34 +310,27 @@ function renderPage(page, idx) {
                         let li = document.createElement("li");
                         const prefix = obj.calculatedPrefix || "";
                         const textValue = obj.originalText || obj.text || "";
-                        const pageNumberOfTitle = i + 1; // i est l'index de la page contenant le titre
-
+                        const pageNumberOfTitle = i + 1;
                         const anchor = document.createElement('a');
-                        anchor.href = `#live-title-${obj.id}`; // Lien vers l'ancre
-                        // Utilisation de table-like layout avec CSS pour aligner les numéros de page à droite
+                        anchor.href = `#live-title-${obj.id}`;
                         anchor.innerHTML = `<span class="toc-title">${prefix}${textValue}</span><span class="toc-page-num">${pageNumberOfTitle}</span>`;
                         li.appendChild(anchor);
-
-                        const level = parseInt(obj.type[1]); // 1 for H1, 2 for H2, etc.
+                        const level = parseInt(obj.type[1]);
                         li.style.marginLeft = `${(level - 1) * 20}px`;
-
                         tocOl.appendChild(li);
                         itemsAddedToTOC++;
                     }
                 });
             }
         }
-        content.appendChild(tocOl); // Add the populated OL to the content
-
+        content.appendChild(tocOl);
         if (itemsAddedToTOC === 0) {
             console.warn("TOC RENDER: No items were added to the TOC during renderPage(idx=1).");
         }
-
-    } else { // Autres pages
+    } else {
         if (!Array.isArray(page.objects)) page.objects = [];
         let objs = document.createElement('div');
         objs.className = "chapter-objects";
-
         let dropStart = document.createElement('div');
         dropStart.className = "drop-target";
         dropStart.addEventListener('dragover', e => { e.preventDefault(); dropStart.style.background = "#cce2ff"; });
@@ -382,14 +342,14 @@ function renderPage(page, idx) {
             if (!type) return;
             let newObj = null;
             if (["h1", "h2", "h3", "h4"].includes(type))
-                newObj = { type: type, text: type.toUpperCase(), originalText: type.toUpperCase() }; // Store original text
+                newObj = { type: type, text: type.toUpperCase(), originalText: type.toUpperCase(), id: generateUniqueId() };
             else if (type === "text")
                 newObj = { type: "text", html: "Zone de texte" };
             else if (type === "table")
                 newObj = { type: "table", rows: [["", "", ""], ["", "", ""], ["", "", ""]] };
             if (!newObj) return;
             page.objects.unshift(newObj);
-            renderDocument(); // Re-render, numbering will be updated by manual button
+            renderDocument();
         });
         objs.appendChild(dropStart);
 
@@ -399,14 +359,11 @@ function renderPage(page, idx) {
                 el = document.createElement("div");
                 el.contentEditable = "true";
                 el.className = "chapter-title" + (obj.type !== "chapterTitle" ? " " + obj.type : "");
-                // Assign ID for anchor
-                if (obj.id) { // Ensure obj.id exists
+                if (obj.id) {
                     el.id = `live-title-${obj.id}`;
                 }
-                // Display stored prefix + original text
                 el.innerText = (obj.calculatedPrefix || "") + (obj.originalText || obj.text || "");
                 el.addEventListener("blur", () => {
-                    // Save only the text part, not the prefix
                     const currentText = el.innerText;
                     const prefix = obj.calculatedPrefix || "";
                     if (currentText.startsWith(prefix)) {
@@ -414,8 +371,7 @@ function renderPage(page, idx) {
                     } else {
                         obj.originalText = currentText;
                     }
-                    obj.text = obj.originalText; // Keep obj.text consistent if other parts of code use it
-                    // No re-render or re-numbering here, wait for manual update
+                    obj.text = obj.originalText;
                 });
             } else if (obj.type === "text") {
                 el = document.createElement('div');
@@ -427,33 +383,29 @@ function renderPage(page, idx) {
 				if (obj.headerShaded === undefined) obj.headerShaded = false;
 				el = document.createElement('div');
 				el.className = "table-container";
-
-				// Déterminer l'orientation de la page
-				let containerWidth = 710;
-				if (orientation[selectedPage] === "portrait") {
-					containerWidth = 710;
-				} else if (orientation[selectedPage] === "landscape") {
-					containerWidth = 1038;
-				}
-
+				let containerWidth = orientation[selectedPage] === "portrait" ? 710 : 1038;
 				let table = document.createElement('table');
 				table.className = "page-table";
 				table.style.width = containerWidth + "px";
 				table.style.maxWidth = containerWidth + "px";
 				table.style.tableLayout = "fixed";
-
 				let firstRow = obj.rows.find(r => r && r.length);
 				let nbCols = firstRow ? firstRow.length : 2;
-
 				if (!obj.colWidths || obj.colWidths.length !== nbCols) {
 					let defaultPx = containerWidth / nbCols;
 					obj.colWidths = Array(nbCols).fill(defaultPx);
 				} else {
-					let total = obj.colWidths.reduce((a, b) => a + b, 0);
-					let scale = containerWidth / total;
-					obj.colWidths = obj.colWidths.map(w => w * scale);
+					let total = obj.colWidths.reduce((a, b) => a + parseFloat(b || 0), 0);
+                    if (total === 0 && nbCols > 0) { // Handle case where all widths are 0 or invalid
+                        let defaultPx = containerWidth / nbCols;
+					    obj.colWidths = Array(nbCols).fill(defaultPx);
+                        total = containerWidth;
+                    }
+                    if (total > 0) { // Ensure total is not zero before scaling
+					    let scale = containerWidth / total;
+					    obj.colWidths = obj.colWidths.map(w => parseFloat(w || 0) * scale);
+                    }
 				}
-
 				let colgroup = document.createElement('colgroup');
 				let accumulated = 0;
 				for (let c = 0; c < nbCols; c++) {
@@ -497,18 +449,25 @@ function renderPage(page, idx) {
 							img.style.objectFit = "contain";
 							td.appendChild(img);
 						} else {
-							let text = typeof cellData === "object" ? cellData.text : cellData;
-							td.innerText = text;
+							if (typeof cellData === "object" && cellData.text) {
+								td.innerHTML = cellData.text;
+							} else if (typeof cellData === "string") {
+								td.innerHTML = cellData;
+							} else if (!(typeof cellData === "object" && cellData.image)) {
+								td.innerHTML = cellData || "";
+							}
 						}
 						let colspan = (typeof cellData === "object" && cellData.colspan) ? cellData.colspan : 1;
 						let align = (typeof cellData === "object" && cellData.align) ? cellData.align : "left";
 						td.colSpan = colspan;
 						td.style.textAlign = align;
 						td.addEventListener('blur', () => {
-							if (typeof cellData === "object") {
-								if (!cellData.image) cellData.text = td.innerText;
+							if (typeof cellData === "object" && cellData !== null) {
+								if (!cellData.image) {
+									cellData.text = td.innerHTML;
+								}
 							} else {
-								obj.rows[i][j] = td.innerText;
+								obj.rows[i][j] = td.innerHTML;
 							}
 						});
 						td.addEventListener('paste', e => {
@@ -596,7 +555,6 @@ function renderPage(page, idx) {
 								const wL = parseFloat(obj.colWidths[j]);
 								const wR = parseFloat(obj.colWidths[j + 1]);
 								document.body.style.cursor = "col-resize";
-
 								function onMove(ev) {
 									let d = ev.pageX - startX;
 									let nl = wL + d, nr = wR - d;
@@ -606,13 +564,11 @@ function renderPage(page, idx) {
 									leftC.style.width = nl + "px";
 									rightC.style.width = nr + "px";
 								}
-
 								function onUp() {
 									document.removeEventListener('mousemove', onMove);
 									document.removeEventListener('mouseup', onUp);
 									document.body.style.cursor = "";
 								}
-
 								document.addEventListener('mousemove', onMove);
 								document.addEventListener('mouseup', onUp);
 							});
@@ -628,7 +584,6 @@ function renderPage(page, idx) {
 				table.appendChild(tbody);
 				el.appendChild(table);
 			}
-
 
             if (el) {
                 el.setAttribute("draggable", "true");
@@ -663,10 +618,10 @@ function renderPage(page, idx) {
                 const movePageStr = e.dataTransfer.getData('move-obj-page');
                 const type = e.dataTransfer.getData("type");
 
-                if (type) { // Drag from tools
+                if (type) {
                     let newObj = null;
                     if (["h1", "h2", "h3", "h4"].includes(type))
-                        newObj = { type: type, text: type.toUpperCase(), originalText: type.toUpperCase() };
+                        newObj = { type: type, text: type.toUpperCase(), originalText: type.toUpperCase(), id: generateUniqueId() };
                     else if (type === "text")
                         newObj = { type: "text", html: "Zone de texte" };
                     else if (type === "table")
@@ -674,24 +629,24 @@ function renderPage(page, idx) {
 
                     if (newObj) {
                         page.objects.splice(oid + 1, 0, newObj);
-                        renderDocument(); // Re-render, numbering will be updated by manual button
+                        renderDocument();
                     }
-                } else if (moveOidStr !== "" && movePageStr !== "") { // Drag existing object
+                } else if (moveOidStr !== "" && movePageStr !== "") {
                     const srcPageIdx = parseInt(movePageStr);
                     const srcOid = parseInt(moveOidStr);
-                    if (srcPageIdx === idx) { // Move within the same page
-                        if (srcOid !== oid && srcOid !== oid + 1) { // Check to prevent weird self-drop
+                    if (srcPageIdx === idx) {
+                        if (srcOid !== oid && srcOid !== oid + 1) {
                             const [objMoved] = page.objects.splice(srcOid, 1);
                             let destOid = (srcOid < oid) ? oid : oid + 1;
                             page.objects.splice(destOid, 0, objMoved);
-                            renderDocument(); // Re-render, numbering will be updated by manual button
+                            renderDocument();
                         }
-                    } else { // Move from another page
+                    } else {
                         const srcPage = pages[srcPageIdx];
                         if (srcPage && Array.isArray(srcPage.objects) && srcOid < srcPage.objects.length) {
                             const [objMoved] = srcPage.objects.splice(srcOid, 1);
                             page.objects.splice(oid + 1, 0, objMoved);
-                            renderDocument(); // Re-render, numbering will be updated by manual button
+                            renderDocument();
                         }
                     }
                 }
@@ -715,42 +670,25 @@ function renderPage(page, idx) {
     return div;
 }
 
-
-// ---- Nouvelle fonction pour mettre à jour tous les numéros et le sommaire ----
 function updateAllChapterNumbers() {
-    let hCounters = [0, 0, 0, 0]; // [H1, H2, H3, H4] - Reset for each full update
-
+    let hCounters = [0, 0, 0, 0];
     pages.forEach((page, pageIdx) => {
-        if (pageIdx >= 2 && Array.isArray(page.objects)) { // Start from page 2 (after cover and TOC)
+        if (pageIdx >= 2 && Array.isArray(page.objects)) {
             page.objects.forEach(obj => {
-                obj.calculatedPrefix = ""; // Clear previous prefix
-
+                obj.calculatedPrefix = "";
                 if (/^h[1-4]$/.test(obj.type)) {
-                    const level = parseInt(obj.type[1]) - 1; // H1→0, H2→1…
-
+                    const level = parseInt(obj.type[1]) - 1;
                     hCounters[level]++;
-                    // Reset counters for subsequent levels
                     for (let k = level + 1; k < 4; k++) {
                         hCounters[k] = 0;
                     }
-                    // Construct prefix: e.g., H1: "1.", H2: "1.1.", H3: "1.1.1."
                     obj.calculatedPrefix = hCounters.slice(0, level + 1).join(".") + ". ";
                 }
             });
         }
     });
-
-    // console.log("TOC DEBUG: Data before calling generateTableOfContents:", JSON.parse(JSON.stringify(pages))); // Deep copy for logging - REMOVED as TOC generation moved
-    renderDocument(); // Re-render the whole document. TOC will be built by renderPage for idx === 1.
+    renderDocument();
 }
-
-// ---- Nouvelle fonction pour générer uniquement le Sommaire ---- (REMOVED - logic moved to renderPage)
-// function generateTableOfContents() { ... }
-
-
-// function showTableMenu(e, obj, rowIdx, colIdx) { /* ... unchanged ... */ }
-// function paginateObjects(idx) { /* ... unchanged ... */ }
-// function paginatePage(idx) { /* ... unchanged ... */ }
 
 function updateSelectionClass() {
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
@@ -760,18 +698,10 @@ function updateSelectionClass() {
         if (selectedElement.pageIdx === 0 && selectedElement.objIdx === "mainTitle") {
             let mainTitles = pagesList[0].querySelectorAll('.doc-title');
             if (mainTitles[1]) mainTitles[1].classList.add('selected');
-        } else if (selectedElement.pageIdx >= 0 && pagesList[selectedElement.pageIdx]) { // Check pageIdx validity
-            // Check if on TOC page (idx 1), no specific element selection logic needed beyond page.
-            // For other pages with objects:
+        } else if (selectedElement.pageIdx >= 0 && pagesList[selectedElement.pageIdx]) {
             if (selectedElement.pageIdx >= 2) {
                  const pageContent = pagesList[selectedElement.pageIdx].querySelector('.chapter-objects');
                  if (pageContent) {
-                    // The children of chapter-objects are [drop-target, el, drop-target, el, ...]
-                    // So we need to adjust objIdx to find the actual element.
-                    // An element is at index 2*objIdx + 1 (because drop-target is at 2*objIdx)
-                    // However, the elements themselves (el) are what get the 'selected' class.
-                    // The items in chapter-objects are alternating drop-targets and actual content elements.
-                    // Let's find the actual content elements directly.
                     const contentElements = Array.from(pageContent.children).filter(child => !child.classList.contains('drop-target'));
                     if (contentElements[selectedElement.objIdx]) {
                          contentElements[selectedElement.objIdx].classList.add('selected');
@@ -785,13 +715,12 @@ function updateSelectionClass() {
 function deleteSelected() {
     if (!selectedElement) return;
     const { pageIdx, objIdx } = selectedElement;
-    // Allow deletion from page 2 onwards
     if (pageIdx >= 2 && typeof objIdx === "number") {
         let page = pages[pageIdx];
         if (Array.isArray(page.objects) && objIdx < page.objects.length) {
             page.objects.splice(objIdx, 1);
             selectedElement = null;
-            renderDocument(); // Re-render. Numbering will be updated manually.
+            renderDocument();
         }
     }
 }
@@ -814,30 +743,19 @@ function setupDragNDrop() {
             evt.dataTransfer.setData("type", el.dataset.type);
         });
     });
-    // TODO : pictos...
 }
 
 /* ------- Ajout / suppression de pages -------- */
 function addPage() {
-    const newPageObject = {
-        type: 'custom', // Type par défaut pour une nouvelle page vierge
-        objects: []     // Initialement aucun objet dans la nouvelle page
-    };
-
-    // Insérer la nouvelle page et son orientation après la page sélectionnée
-    // selectedPage est l'index de la page actuellement active
-    // On insère à selectedPage + 1 pour mettre la nouvelle page après l'actuelle
+    const newPageObject = { type: 'custom', objects: [] };
     pages.splice(selectedPage + 1, 0, newPageObject);
-    orientation.splice(selectedPage + 1, 0, "portrait"); // Orientation par défaut
-
-    // Mettre à jour selectedPage pour pointer vers la nouvelle page insérée
+    orientation.splice(selectedPage + 1, 0, "portrait");
     selectedPage = selectedPage + 1;
-
-    renderDocument();       // Rafraîchir l'affichage de toutes les pages
-    updateSelectionClass(); // S'assurer que la nouvelle page est visuellement sélectionnée
+    renderDocument();
+    updateSelectionClass();
 }
 
-function deletePage() { // Removed idx parameter, uses selectedPage
+function deletePage() {
     if (selectedPage === 0 || selectedPage === 1) {
         alert("Impossible de supprimer la page de garde ou le sommaire !");
         return;
@@ -847,7 +765,7 @@ function deletePage() { // Removed idx parameter, uses selectedPage
     orientation.splice(selectedPage, 1);
     if (selectedPage >= pages.length) selectedPage = pages.length - 1;
     selectedElement = null;
-    renderDocument(); // Re-render. Numbering will be updated manually.
+    renderDocument();
 }
 
 /* ------- Changement d’orientation -------- */
@@ -862,9 +780,6 @@ function toggleOrientation(idx = null) {
 }
 
 /* ------- Rafraîchir (recalcule sommaire) ------- */
-// This function seems to be for a hard refresh by reloading from localStorage.
-// The new updateAllChapterNumbers() button provides a soft update.
-// We can keep this as is, or change its purpose if desired.
 function refreshDocument() {
     localStorage.setItem('noticeProject', JSON.stringify({ pages, orientation }));
     location.reload();
@@ -872,15 +787,12 @@ function refreshDocument() {
 
 /* ------- Sauvegarder / Charger JSON ------- */
 function saveJSON() {
-    // Before saving, ensure originalText is up-to-date from any direct DOM edits
-    // This is somewhat handled by the blur event on titles, but a full sweep might be safer
-    // For now, assuming blur events are sufficient.
     const data = JSON.stringify({ pages, orientation });
     let a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
     a.download = "notice.json";
     a.click();
-    URL.revokeObjectURL(a.href); // Clean up
+    URL.revokeObjectURL(a.href);
 }
 
 function openJSONFile(input) {
@@ -892,37 +804,143 @@ function openJSONFile(input) {
             let data = JSON.parse(evt.target.result);
             pages = data.pages || [];
             orientation = data.orientation || [];
-            // Ensure loaded objects have originalText if they are titles
             pages.forEach(p => {
                 if (Array.isArray(p.objects)) {
                     p.objects.forEach(obj => {
                         if ((obj.type === "chapterTitle" || /^h[1-4]$/.test(obj.type)) && obj.text && obj.originalText === undefined) {
-                            obj.originalText = obj.text; // Initialize if missing
+                            obj.originalText = obj.text;
+                        }
+                        // Assurer un id unique pour les objets chargés qui n'en auraient pas
+                        if ((obj.type === "chapterTitle" || /^h[1-4]$/.test(obj.type)) && !obj.id) {
+                            obj.id = generateUniqueId();
                         }
                     });
                 }
             });
-            selectedPage = 0; // Reset selection
+            selectedPage = 0;
             selectedElement = null;
-            updateAllChapterNumbers(); // Calculate numbers and TOC for the loaded project
-            // renderDocument(); // updateAllChapterNumbers already calls renderDocument
+            updateAllChapterNumbers();
         } catch (e) {
             console.error("Error parsing JSON file:", e);
             alert("Erreur lors de l'ouverture du fichier JSON.");
         }
     };
     reader.readAsText(file);
-    input.value = ""; // Reset file input
+    input.value = "";
 }
 
-// Ensure table menu functions are defined if not included in "..." above
+/* ------- Gestion des Risques Sélectionnés ------- */
+function appliquerRisquesSelectionnes() {
+    if (typeof ALL_RISKS === 'undefined' || !Array.isArray(ALL_RISKS)) {
+        console.error("ALL_RISKS n'est pas défini ou n'est pas un tableau. Assurez-vous que constante.js est chargé et correct.");
+        alert("Erreur : Les définitions des risques ne sont pas chargées ou sont incorrectes.");
+        return;
+    }
+
+    let contentAddedOverall = false;
+
+    ALL_RISKS.forEach(risque => {
+        if (!risque || typeof risque.id === 'undefined' ||
+            typeof risque.chapitreTargetName === 'undefined' ||
+            typeof risque.titreType === 'undefined' ||
+            !/^h[1-4]$/.test(risque.titreType)) {
+            console.warn("Objet risque malformé ou type de titre de risque invalide dans ALL_RISKS:", risque);
+            return;
+        }
+
+        const checkbox = document.getElementById(risque.id);
+        if (checkbox && checkbox.checked) {
+
+            const niveauTitreRisque = parseInt(risque.titreType.substring(1));
+            let parentTitreType;
+
+            if (niveauTitreRisque > 1) {
+                parentTitreType = "h" + (niveauTitreRisque - 1);
+            } else {
+                console.warn(`Le risque '${risque.titreText}' (type ${risque.titreType}) ne peut pas être inséré car il n'a pas de niveau parent Hn-1 standard. Les risques de type H1 ne sont pas auto-insérables sous un parent.`);
+                alert(`Le risque "${risque.titreText}" (${risque.titreType}) ne peut pas être automatiquement placé car il est de niveau H1. Veuillez l'insérer manuellement ou définir un type de titre H2, H3 ou H4 pour le risque.`);
+                return; // Passer au risque suivant
+            }
+
+            let parentObjectContainer = null;
+            let parentObjIndex = -1;
+            let insertionPageIndex = -1;
+
+            for (let i = 0; i < pages.length; i++) {
+                const page = pages[i];
+                if (page.objects && Array.isArray(page.objects)) {
+                    for (let j = 0; j < page.objects.length; j++) {
+                        const currentObj = page.objects[j];
+                        const currentObjText = (currentObj.originalText || currentObj.text || "").trim().toLowerCase();
+                        const targetParentName = (risque.chapitreTargetName || "").trim().toLowerCase();
+
+                        if (currentObj.type === parentTitreType && currentObjText === targetParentName) {
+                            parentObjectContainer = page.objects;
+                            parentObjIndex = j;
+                            insertionPageIndex = i;
+                            break;
+                        }
+                    }
+                }
+                if (parentObjectContainer) break;
+            }
+
+            if (parentObjectContainer && parentObjIndex !== -1) {
+                // Vérifier si le contenu du risque existe déjà juste après le parent trouvé.
+                // Cela nécessite de regarder les objets suivants pour le titre spécifique du risque.
+                let alreadyExists = false;
+                if (parentObjIndex + 1 < parentObjectContainer.length) {
+                    const nextObj = parentObjectContainer[parentObjIndex + 1];
+                    if (nextObj.type === risque.titreType &&
+                        (nextObj.text === risque.titreText || nextObj.originalText === risque.titreText)) {
+                        alreadyExists = true;
+                    }
+                }
+                // Une vérification plus robuste pourrait scanner tous les éléments après le parentObjIndex jusqu'au prochain titre de même niveau ou supérieur que le parent.
+                // Pour l'instant, la vérification simple ci-dessus est un bon début.
+
+                if (alreadyExists) {
+                    console.log(`Le contenu pour '${risque.titreText}' semble déjà exister sous '${risque.chapitreTargetName}'. Ajout ignoré.`);
+                } else {
+                    const newTitleObj = {
+                        type: risque.titreType,
+                        text: risque.titreText,
+                        originalText: risque.titreText,
+                        id: generateUniqueId()
+                    };
+
+                    const newContentObj = {
+                        type: "text",
+                        html: risque.contenuHTML
+                    };
+
+                    // Insérer après l'objet parent
+                    parentObjectContainer.splice(parentObjIndex + 1, 0, newTitleObj, newContentObj);
+                    contentAddedOverall = true;
+                    console.log(`Contenu pour '${risque.titreText}' ajouté sous '${risque.chapitreTargetName}' (type ${parentTitreType}) sur la page ${insertionPageIndex + 1}.`);
+                }
+            } else {
+                console.warn(`Titre parent de type '${parentTitreType}' nommé '${risque.chapitreTargetName}' non trouvé pour le risque '${risque.titreText}'.`);
+                alert(`Le titre parent "${risque.chapitreTargetName}" (type ${parentTitreType}) n'a pas été trouvé pour le risque "${risque.titreText}".`);
+            }
+        }
+    });
+
+    if (contentAddedOverall) {
+        updateAllChapterNumbers();
+        alert("Les nouveaux risques sélectionnés ont été appliqués aux sections correspondantes.");
+    } else {
+        alert("Aucun nouveau risque à ajouter, ou les sections parentes n'ont pas été trouvées. Vérifiez les cases cochées et les noms/types des titres parents.");
+    }
+}
+
+
+// --- Fonctions de Menu Tableau et de Pagination (existantes) ---
 function showTableMenu(e, obj, rowIdx, colIdx) {
     let cellData = obj.rows[rowIdx][colIdx];
     if (cellData === null) return;
-
     let oldMenu = document.getElementById('table-menu-popup');
     if (oldMenu) oldMenu.remove();
-
     let menu = document.createElement('div');
     menu.id = "table-menu-popup";
     Object.assign(menu.style, {
@@ -931,9 +949,7 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         zIndex: 10000, boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
         fontSize: "1em", padding: "4px 0"
     });
-
     menu._originTable = e.currentTarget.closest('.table-container').querySelector('table');
-
     function alignItem(label, align) {
         let item = document.createElement('div');
         item.innerText = label;
@@ -941,27 +957,18 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         item.onmouseover = () => item.style.background = "#eef";
         item.onmouseleave = () => item.style.background = "#fff";
         item.onclick = () => {
-            // met à jour le modèle
             let c = obj.rows[rowIdx][colIdx];
             if (typeof c === "object") c.align = align;
             else obj.rows[rowIdx][colIdx] = { text: c, align };
-
-            // applique DIRECTEMENT sur le <td>
             const td = menu._originTable.rows[rowIdx].cells[colIdx];
             td.style.textAlign = align;
-
-            // restore focus + caret
-            restoreCaret();
-
-            // ferme le menu
+            // restoreCaret(); // Cette fonction n'est pas définie, commenter pour l'instant
             menu.remove();
         };
         menu.appendChild(item);
     }
     alignItem("Aligner à gauche", "left");
     alignItem("Centrer horizontalement", "center");
-    // ... other align items
-
     function structuralItem(label, fn) {
         let item = document.createElement('div');
         item.innerText = label;
@@ -971,13 +978,11 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         item.onclick = () => {
             fn();
             menu.remove();
-            renderDocument(); // Structural changes might need full re-render
-                           // Consider if updateAllChapterNumbers() is needed too
+            renderDocument();
         };
         return item;
     }
-
-    function menuItem(label, fn) { // General purpose menu item
+    function menuItem(label, fn) {
         let item = document.createElement('div');
         item.innerText = label;
         item.style.padding = "6px 18px"; item.style.cursor  = "pointer";
@@ -986,15 +991,15 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         item.onclick = () => { fn(); menu.remove(); renderDocument(); };
         return item;
     }
-
     menu.appendChild(menuItem(obj.headerShaded ? "Désactiver gris de la 1ʳᵉ ligne" : "Griser la 1ʳᵉ ligne", () => {
         obj.headerShaded = !obj.headerShaded;
     }));
     menu.appendChild(document.createElement('hr'));
     menu.appendChild(structuralItem("Ajouter colonne à droite", () => {
         obj.rows.forEach(row => row.splice(colIdx + 1, 0, ""));
-        const w = obj.colWidths[colIdx];
-        obj.colWidths.splice(colIdx + 1, 0, w);
+        const w = obj.colWidths[colIdx]; // Problème potentiel si colIdx est la dernière
+        obj.colWidths.splice(colIdx + 1, 0, w); // Duplique la largeur, normalisation nécessaire après
+        normalizeColWidths(obj); // Appel à la normalisation
 	}));
     menu.appendChild(structuralItem("Ajouter ligne dessous", () => {
         let newRow = obj.rows[0].map(() => "");
@@ -1004,7 +1009,6 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
         menu.appendChild(structuralItem("Supprimer colonne", () => {
             for (let r = 0; r < obj.rows.length; r++) {
                 let cd = obj.rows[r][colIdx];
-                // fusion à gauche
                 if (cd === null) {
                     for (let k = colIdx - 1; k >= 0; k--) {
                         let lc = obj.rows[r][k];
@@ -1015,7 +1019,6 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
                         }
                     }
                 }
-                // début fusion
                 else if (typeof cd === "object" && cd.colspan > 1) {
                     let text = cd.text || "";
                     obj.rows[r][colIdx] = text;
@@ -1025,114 +1028,63 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
                 }
             }
             obj.rows.forEach(row => row.splice(colIdx, 1));
-                }));
-        }
-    // Supprimer ligne
+            obj.colWidths.splice(colIdx, 1); // Supprimer aussi la largeur de colonne
+            normalizeColWidths(obj); // Appel à la normalisation
+        }));
+    }
     if (obj.rows.length > 1) {
         menu.appendChild(structuralItem("Supprimer ligne", () => {
             obj.rows.splice(rowIdx, 1);
         }));
     }
-
-    // Fusionner à droite
-    if (colIdx < obj.rows[rowIdx].length - 1) {
+    if (colIdx < obj.rows[rowIdx].length - 1 && obj.rows[rowIdx][colIdx+1] !== null) { // S'assurer qu'il y a une cellule à droite et qu'elle n'est pas déjà partie d'une fusion
         menu.appendChild(structuralItem("Fusionner à droite", () => {
             let cur = obj.rows[rowIdx][colIdx];
             let next = obj.rows[rowIdx][colIdx + 1];
-            if (typeof cur === "object") {
-                cur.colspan = (cur.colspan || 1) + (next && next.colspan ? next.colspan : 1);
-                cur.text += " " + (typeof next === "object" ? next.text : next);
-            } else {
-                obj.rows[rowIdx][colIdx] = {
-                    text: cur + " " + (typeof next === "object" ? next.text : next),
-                    colspan: 2
-                };
+            let currentText = (typeof cur === "object" && !cur.image) ? cur.text : (cur || "");
+            let nextText = (typeof next === "object" && !next.image) ? next.text : (next || "");
+            let newColspan = ((typeof cur === "object" && cur.colspan) ? cur.colspan : 1) +
+                             ((typeof next === "object" && next.colspan) ? next.colspan : 1);
+
+            obj.rows[rowIdx][colIdx] = {
+                text: currentText + " " + nextText,
+                colspan: newColspan,
+                align: (typeof cur === "object" ? cur.align : "left") // Conserver l'alignement de la cellule de gauche
+            };
+            // Marquer les cellules suivantes comme null pour la fusion
+            for(let k=1; k < newColspan; k++){
+                if(colIdx + k < obj.rows[rowIdx].length) {
+                     obj.rows[rowIdx][colIdx+k] = null;
+                }
             }
-            obj.rows[rowIdx].splice(colIdx + 1, 1);
+            // Recalculer proprement les indices pour splice si d'autres fusions existent
+            let cellsToRemove = ((typeof next === "object" && next.colspan) ? next.colspan : 1);
+            obj.rows[rowIdx].splice(colIdx + 1, cellsToRemove);
+
+
         }));
     }
-
-    // Scinder cellule
     if (typeof cellData === "object" && cellData.colspan > 1) {
         menu.appendChild(structuralItem("Scinder cellule", () => {
             let n = cellData.colspan;
-            obj.rows[rowIdx][colIdx] = cellData.text || "";
-            for (let i = 1; i < n; i++) obj.rows[rowIdx].splice(colIdx + 1, 0, "");
+            let currentText = cellData.text || "";
+            // Diviser le texte approximativement si possible (simpliste)
+            let partText = currentText.substring(0, Math.ceil(currentText.length / n));
+            obj.rows[rowIdx][colIdx] = {text: partText, align: cellData.align}; // Remettre la première partie
+
+            for (let i = 1; i < n; i++) {
+                 // Insérer des cellules vides pour les parties scindées
+                obj.rows[rowIdx].splice(colIdx + i, 0, {text: "", align: cellData.align});
+            }
         }));
     }
-
     document.body.appendChild(menu);
-	// ferme si clic à l’extérieur
     document.addEventListener('mousedown', function hideMenu(ev) {
-        if (!menu.contains(ev.target)) {
+        if (menu && !menu.contains(ev.target)) { // Vérifier si menu existe encore
             menu.remove();
             document.removeEventListener('mousedown', hideMenu);
         }
-    }, { once: true }); // Use { once: true } for cleaner event removal
-}
-
-// Dummy paginate functions if they are complex and not directly related to numbering for now
-function paginateObjects(idx) {
-    // Pas de pagination sur la couverture ou sommaire
-    if (idx < 2) return;
-    setTimeout(() => {
-        const pageDivs = document.querySelectorAll('.page');
-        let currentPageIdx = idx;
-        let hasPaginated = false;
-
-        while (currentPageIdx < pages.length) {
-            const currentPage = pages[currentPageIdx];
-            const thisPageDiv = pageDivs[currentPageIdx];
-            if (!thisPageDiv) break;
-            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
-            if (!chapterObjs) break;
-
-            const pxLimite = 25 * 37.8; // 25 cm en px
-            let cumulated = 0;
-            let splitAt = -1;
-            const children = Array.from(chapterObjs.children);
-
-            for (let i = 0; i < children.length; i++) {
-                let h = children[i].offsetHeight;
-                if (cumulated + h > pxLimite) {
-                    splitAt = i;
-                    break;
-                }
-                cumulated += h;
-            }
-            if (splitAt > -1) {
-                // Découpage : les objets [0..splitAt-1] restent, le reste va à la page suivante
-                let overflowObjects = currentPage.objects.slice(splitAt);
-                currentPage.objects = currentPage.objects.slice(0, splitAt);
-
-                // Crée ou utilise la page suivante
-                let nextPage = pages[currentPageIdx + 1];
-                if (!nextPage || nextPage.type !== currentPage.type) {
-                    nextPage = { type: currentPage.type, chapterTitle: "", objects: [] };
-                    pages.splice(currentPageIdx + 1, 0, nextPage);
-                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
-                }
-                // Ajoute les objets à la suite des objets de la page suivante
-                nextPage.objects = overflowObjects.concat(nextPage.objects);
-                hasPaginated = true;
-                renderDocument();
-                // Relance la pagination sur la page suivante (si elle aussi déborde)
-                currentPageIdx++;
-            } else {
-                break;
-            }
-        }
-        // Après pagination, supprime les pages vides inutiles (hors garde/sommaire)
-        if (hasPaginated) {
-            for (let i = pages.length - 1; i >= 2; i--) {
-                if (!pages[i].objects || pages[i].objects.length === 0) {
-                    pages.splice(i, 1);
-                    orientation.splice(i, 1);
-                }
-            }
-            renderDocument();
-        }
-    }, 30);
+    }, { once: false }); // {once: true} peut être problématique si le menu est recréé rapidement
 }
 
 function exportCleanHTML() {
@@ -1276,10 +1228,10 @@ function exportCleanHTML() {
             font-weight: bold;
             margin: 20px 0 10px 0;
         }
-        .page h1, .page .h1 { font-size: 22pt !important; }
-        .page h2, .page .h2 { font-size: 18pt !important; }
-        .page h3, .page .h3 { font-size: 16pt !important; }
-        .page h4, .page .h4 { font-size: 14pt !important; }
+        .page h1, .page .h1 { font-size: 18pt !important; }
+        .page h2, .page .h2 { font-size: 16pt !important; }
+        .page h3, .page .h3 { font-size: 14pt !important; }
+        .page h4, .page .h4 { font-size: 13pt !important; }
 
         /* Styles spécifiques pour la page de garde (idx === 0) */
         .cover-title {
@@ -1291,99 +1243,84 @@ function exportCleanHTML() {
         #table-of-contents {
             list-style-type: none;
             padding-left: 0; /* Pas de padding par défaut pour ol */
-            font-size: 1.2em; /* Un peu plus grand pour le sommaire */
+            font-size: 1.1em; /* Un peu plus grand pour le sommaire */
         }
         #table-of-contents li {
-            margin-bottom: 5px; /* Espacement entre les items du sommaire */
+            margin-bottom: 2px; /* Espacement entre les items du sommaire */
         }
     </style>
 </head>
 <body>
 `;
-
     pages.forEach((pageData, idx) => {
         const pageOrientation = orientation[idx] || 'portrait';
         html += `<div class="page ${pageOrientation === 'landscape' ? 'landscape' : ''}">`;
-
-        // En-tête
-        html += `
-            <div class="header">
-                <img class="logo" src="${(typeof logoData !== "undefined" && logoData.url) ? logoData.url : ''}" alt="Logo">
-                <div class="doc-title">${pages[0].docTitle || "Titre du document"}</div>
-                <div class="revision">
-                    <div class="index">${INDEX_REV}</div>
-                    <div class="num">${pages[0].editableNum || NUM_REF}</div>
-                </div>
-            </div>`;
-
-        // Contenu
+        html += `<div class="header"><img class="logo" src="${(typeof logoData !== "undefined" && logoData.url) ? logoData.url : ''}" alt="Logo"><div class="doc-title">${pages[0].docTitle || "Titre du document"}</div><div class="revision"><div class="index">${INDEX_REV}</div><div class="num">${pages[0].editableNum || NUM_REF}</div></div></div>`;
         html += `<div class="content">`;
-        if (idx === 0) { // Page de Garde
+        if (idx === 0) {
             html += `<div class="cover-title">${pageData.title || "Notice"}</div>`;
             if (pageData.img) {
                 html += `<div class="img-drop"><img src="${pageData.img}" alt="Image de couverture"></div>`;
             }
-        } else if (idx === 1) { // Sommaire
+            // Ajout du bloc constructeur pour l'export aussi
+            html += `<div class="constructeur-info" style="border: 2px solid #000; padding: 10px; margin-top: 20px; font-size: 12pt; text-align: left;"><b>Constructeur : APA <br>Adresse :</b> 292 Rue de l'Epinette, 76320 CAUDEBEC Lès ELBEUF <br>☎️ +33 2.32.96.26.60</div>`;
+
+        } else if (idx === 1) {
             html += `<h2>Sommaire</h2>`;
             html += `<ol id="table-of-contents">`;
-            // Recalculer le sommaire basé sur les titres H des pages suivantes
             for (let i = 2; i < pages.length; i++) {
                 const p = pages[i];
                 if (Array.isArray(p.objects)) {
                     p.objects.forEach(obj => {
-                        if (/^h[1-4]$/.test(obj.type) && (obj.originalText || obj.text)) {
+                        if (/^h[1-4]$/.test(obj.type) && (obj.originalText || obj.text) && obj.id) {
                             const prefix = obj.calculatedPrefix || "";
                             const textValue = obj.originalText || obj.text || "";
                             const level = parseInt(obj.type[1]);
-                            const pageNumberOfTitleExport = i + 1; // i est l'index de la page contenant le titre
-                            const anchorId = `export-title-${obj.id}`; // ID pour l'ancre
-                            // Ajout simple du numéro de page. Pour un alignement à droite,
-                            // il faudrait ajouter des spans et des styles similaires à ceux du mode édition,
-                            // ou utiliser des tableaux HTML si la conversion Word doit être plus robuste.
-                            // Pour l'instant, simple ajout de texte.
-                            html += `<li style="margin-left: ${(level - 1) * 20}px;"><a href="#${anchorId}">${prefix}${textValue} <span>(page ${pageNumberOfTitleExport})</span></a></li>`;
+                            const pageNumberOfTitleExport = i + 1;
+                            const anchorId = `export-title-${obj.id}`;
+                            html += `<li style="margin-left: ${(level - 1) * 20}px;"><a href="#${anchorId}"><span class="toc-title">${prefix}${textValue}</span><span class="toc-page-num">${pageNumberOfTitleExport}</span></a></li>`;
                         }
                     });
                 }
             }
             html += `</ol>`;
-        } else { // Autres pages
+        } else {
             if (Array.isArray(pageData.objects)) {
                 pageData.objects.forEach(obj => {
                     if (obj.type === "chapterTitle" || /^h[1-4]$/.test(obj.type)) {
                         const prefix = obj.calculatedPrefix || "";
                         const text = obj.originalText || obj.text || "";
-                        const anchorId = `export-title-${obj.id}`; // ID pour l'ancre
-                        html += `<div class="${obj.type}" id="${anchorId}">${prefix}${text}</div>`;
+                        const anchorId = obj.id ? `export-title-${obj.id}` : '';
+                        html += `<div class="${obj.type}" ${anchorId ? `id="${anchorId}"` : ''}>${prefix}${text}</div>`;
                     } else if (obj.type === "text") {
                         html += `<div class="rte-area">${obj.html || ""}</div>`;
                     } else if (obj.type === "table") {
-                        let tableStyle = 'width:100%;'; // Par défaut, prend toute la largeur du conteneur .content
+                        let tableStyle = 'width:100%;';
                         html += `<table class="page-table" style="${tableStyle}">`;
-
                         if (obj.colWidths && Array.isArray(obj.colWidths) && obj.colWidths.length > 0) {
-                            const totalWidthInPx = obj.colWidths.reduce((sum, w) => sum + parseFloat(w || 0), 0);
-                            if (totalWidthInPx > 0) {
-                                html += `<colgroup>`;
-                                obj.colWidths.forEach(widthInPx => {
-                                    const widthInPercent = (parseFloat(widthInPx || 0) / totalWidthInPx) * 100;
-                                    html += `<col style="width: ${widthInPercent.toFixed(2)}%;">`;
+                            html += `<colgroup>`;
+                            let totalWidthDefined = obj.colWidths.reduce((sum, w) => sum + parseFloat(w || 0), 0);
+                            if (totalWidthDefined > 0) {
+                                obj.colWidths.forEach(widthPx => {
+                                    const percent = (parseFloat(widthPx || 0) / totalWidthDefined) * 100;
+                                    html += `<col style="width: ${percent.toFixed(2)}%;">`;
                                 });
-                                html += `</colgroup>`;
+                            } else { // Fallback if widths are not properly defined
+                                const equalPercent = 100 / obj.colWidths.length;
+                                obj.colWidths.forEach(() => html += `<col style="width: ${equalPercent.toFixed(2)}%;">`);
                             }
+                            html += `</colgroup>`;
                         }
-
                         if (Array.isArray(obj.rows)) {
                             obj.rows.forEach((row, rowIndex) => {
                                 html += `<tr>`;
                                 if (Array.isArray(row)) {
                                     row.forEach(cell => {
-                                        if (cell === null) return; // Pour les cellules fusionnées horizontalement
+                                        if (cell === null) return;
                                         const cellTag = (rowIndex === 0 && obj.headerShaded) ? 'th' : 'td';
                                         let cellContent = '';
                                         let colspan = 1;
                                         let textAlign = 'left';
-
                                         if (typeof cell === "object" && cell !== null) {
                                             if (cell.image) {
                                                 cellContent = `<img src="${cell.image}" style="max-width:100%; height:auto; display:block;">`;
@@ -1403,22 +1340,14 @@ function exportCleanHTML() {
                         }
                         html += `</table>`;
                     }
-                    // Note: Les icônes/pictogrammes ne sont pas gérés ici, car ce sont des éléments de l'UI.
-                    // Si des images sont insérées comme objets, elles devraient être de type "image" et traitées.
                 });
             }
         }
-        html += `</div>`; // Fin .content
-
-        // Pied de page (Pagination)
+        html += `</div>`;
         html += `<div class="pagination">Page ${idx + 1} / ${pages.length}</div>`;
-        html += `</div>`; // Fin .page
+        html += `</div>`;
     });
-
-    html += `
-</body>
-</html>`;
-
+    html += `</body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1429,55 +1358,75 @@ function exportCleanHTML() {
     URL.revokeObjectURL(a.href);
 }
 
-function paginatePage(idx) {
-    // Empêche la pagination sur page de garde ou sommaire
+function paginateObjects(idx) {
     if (idx < 2) return;
-
     setTimeout(() => {
         const pageDivs = document.querySelectorAll('.page');
         let currentPageIdx = idx;
-
-        // On boucle sur chaque page à partir de idx
+        let hasPaginated = false;
         while (currentPageIdx < pages.length) {
             const currentPage = pages[currentPageIdx];
             const thisPageDiv = pageDivs[currentPageIdx];
             if (!thisPageDiv) break;
             const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
             if (!chapterObjs) break;
-
             const pxLimite = 25 * 37.8;
             let cumulated = 0;
             let splitAt = -1;
             const children = Array.from(chapterObjs.children);
             for (let i = 0; i < children.length; i++) {
+                if (children[i].classList.contains('drop-target')) continue; // Ignorer les drop-targets dans le calcul de hauteur
                 let h = children[i].offsetHeight;
                 if (cumulated + h > pxLimite) {
-                    splitAt = i;
+                    // Trouver l'index de l'objet correspondant dans currentPage.objects
+                    // Les enfants de chapterObjs sont [drop, obj, drop, obj, ...]
+                    // L'objet réel est à (i-1)/2 si i est l'index de l'élément visuel (el)
+                    // Ou plutôt, on compte les éléments réels
+                    let realObjIndex = 0;
+                    let currentChildIndex = 0;
+                    for(let k=0; k < children.length; k++){
+                        if(!children[k].classList.contains('drop-target')){
+                            if(currentChildIndex === i) break;
+                            realObjIndex++;
+                        }
+                        currentChildIndex++;
+                    }
+                    splitAt = realObjIndex;
                     break;
                 }
-                cumulated += h;
+                if(!children[i].classList.contains('drop-target')) cumulated += h;
             }
-            if (splitAt > -1) {
-                // Découpe ici : les objets [0..splitAt-1] restent dans la page
-                // le reste passe à la page suivante
+            if (splitAt > -1 && splitAt < currentPage.objects.length) { // S'assurer que splitAt est valide
                 let overflowObjects = currentPage.objects.slice(splitAt);
                 currentPage.objects = currentPage.objects.slice(0, splitAt);
-
-                // Nouvelle page si besoin
                 let nextPage = pages[currentPageIdx + 1];
-                if (!nextPage || nextPage.type !== currentPage.type) {
-                    nextPage = { type: currentPage.type, chapterTitle: "", objects: [] };
+                if (!nextPage || nextPage.type !== currentPage.type) { //TODO: vérifier si le type de page doit être identique
+                    nextPage = { type: 'chapter', objects: [] }; // Type par défaut pour une nouvelle page de contenu
                     pages.splice(currentPageIdx + 1, 0, nextPage);
                     orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
                 }
-                // On place les objets qui débordent en tête de la page suivante
                 nextPage.objects = overflowObjects.concat(nextPage.objects);
-                renderDocument();
-                // On continue sur la page suivante (si elle déborde elle aussi)
+                hasPaginated = true;
+                // Il faut re-rendre pour que les mesures de la page suivante soient correctes
+                renderDocument(); // Potentiellement coûteux, mais nécessaire pour la précision
                 currentPageIdx++;
             } else {
-                break; // Rien à paginer, on s'arrête
+                break;
             }
         }
-    }, 30);
+        if (hasPaginated) {
+            for (let i = pages.length - 1; i >= 2; i--) {
+                if (pages[i].objects && pages[i].objects.length === 0 && pages[i].type !== 'cover' && pages[i].type !== 'toc') {
+                    pages.splice(i, 1);
+                    orientation.splice(i, 1);
+                }
+            }
+            updateAllChapterNumbers(); // Appel final pour tout recalculer et re-rendre
+        }
+    }, 100); // Augmenter le délai pour s'assurer que le DOM est stable
+}
+
+// La fonction paginatePage est un alias ou une version précédente de paginateObjects.
+function paginatePage(idx) {
+    paginateObjects(idx);
 }
