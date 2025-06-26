@@ -134,14 +134,6 @@ function initDocument() {
                     }
                 });
             }
-            // Note: Si vous avez des H3 en tant que frères de H2 (directement sous H1),
-            // le bloc de code pour chapEntry.H3_items que vous aviez initialement
-            // devrait être placé ici, en dehors de la boucle H2_items.
-            // Exemple (si nécessaire) :
-            // if (chapEntry.H3_items_direct && Array.isArray(chapEntry.H3_items_direct)) {
-            //     chapEntry.H3_items_direct.forEach(h3DirectEntry => { /* ... */ });
-            // }
-
             if (pageObjects.length > 0) {
                 pages.push({
                     type: 'chapter',
@@ -149,6 +141,7 @@ function initDocument() {
                 });
                 orientation.push("portrait");
             }
+			//console.log(pageObjects);
         });
     }
     renderDocument();
@@ -305,7 +298,7 @@ function renderPage(page, idx) {
     } else if (idx === 1) {
         let tocOl = document.createElement("ol");
         tocOl.id = "table-of-contents";
-        tocOl.style.fontSize = "1.3em";
+        tocOl.style.fontSize = "1.1em";
         tocOl.style.margin   = "0 0 0 24px";
         tocOl.style.padding  = "0";
         let itemsAddedToTOC = 0;
@@ -1094,74 +1087,6 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
     }, { once: false }); // {once: true} peut être problématique si le menu est recréé rapidement
 }
 
-function paginateObjects(idx) {
-    if (idx < 2) return;
-    setTimeout(() => {
-        const pageDivs = document.querySelectorAll('.page');
-        let currentPageIdx = idx;
-        let hasPaginated = false;
-        while (currentPageIdx < pages.length) {
-            const currentPage = pages[currentPageIdx];
-            const thisPageDiv = pageDivs[currentPageIdx];
-            if (!thisPageDiv) break;
-            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
-            if (!chapterObjs) break;
-            const pxLimite = 25 * 37.8;
-            let cumulated = 0;
-            let splitAt = -1;
-            const children = Array.from(chapterObjs.children);
-            for (let i = 0; i < children.length; i++) {
-                if (children[i].classList.contains('drop-target')) continue; // Ignorer les drop-targets dans le calcul de hauteur
-                let h = children[i].offsetHeight;
-                if (cumulated + h > pxLimite) {
-                    // Trouver l'index de l'objet correspondant dans currentPage.objects
-                    // Les enfants de chapterObjs sont [drop, obj, drop, obj, ...]
-                    // L'objet réel est à (i-1)/2 si i est l'index de l'élément visuel (el)
-                    // Ou plutôt, on compte les éléments réels
-                    let realObjIndex = 0;
-                    let currentChildIndex = 0;
-                    for(let k=0; k < children.length; k++){
-                        if(!children[k].classList.contains('drop-target')){
-                            if(currentChildIndex === i) break;
-                            realObjIndex++;
-                        }
-                        currentChildIndex++;
-                    }
-                    splitAt = realObjIndex;
-                    break;
-                }
-                if(!children[i].classList.contains('drop-target')) cumulated += h;
-            }
-            if (splitAt > -1 && splitAt < currentPage.objects.length) { // S'assurer que splitAt est valide
-                let overflowObjects = currentPage.objects.slice(splitAt);
-                currentPage.objects = currentPage.objects.slice(0, splitAt);
-                let nextPage = pages[currentPageIdx + 1];
-                if (!nextPage || nextPage.type !== currentPage.type) { //TODO: vérifier si le type de page doit être identique
-                    nextPage = { type: 'chapter', objects: [] }; // Type par défaut pour une nouvelle page de contenu
-                    pages.splice(currentPageIdx + 1, 0, nextPage);
-                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
-                }
-                nextPage.objects = overflowObjects.concat(nextPage.objects);
-                hasPaginated = true;
-                // Il faut re-rendre pour que les mesures de la page suivante soient correctes
-                renderDocument(); // Potentiellement coûteux, mais nécessaire pour la précision
-                currentPageIdx++;
-            } else {
-                break;
-            }
-        }
-        if (hasPaginated) {
-            for (let i = pages.length - 1; i >= 2; i--) {
-                if (pages[i].objects && pages[i].objects.length === 0 && pages[i].type !== 'cover' && pages[i].type !== 'toc') {
-                    pages.splice(i, 1);
-                    orientation.splice(i, 1);
-                }
-            }
-            updateAllChapterNumbers(); // Appel final pour tout recalculer et re-rendre
-        }
-    }, 100); // Augmenter le délai pour s'assurer que le DOM est stable
-}
-
 function exportCleanHTML() {
     let html = `
 <!DOCTYPE html>
@@ -1170,31 +1095,159 @@ function exportCleanHTML() {
     <meta charset="UTF-8">
     <title>Export Notice</title>
     <style>
-        body { background: #fff; font-family: 'Segoe UI', 'Arial', sans-serif; font-size: 12pt; margin: 0; padding: 0; }
-        .page { width: 210mm; min-height: 297mm; max-width: 210mm; /*max-height: 297mm;*/ box-sizing: border-box !important; box-shadow: none !important; border: 1px solid #555 !important; border-radius: 3px !important; margin: 0 auto 10mm auto !important; padding: 10mm 15mm 10mm 15mm !important; overflow: visible !important; /* Changed from hidden for full content */ display: flex !important; flex-direction: column !important; position: relative !important; page-break-after: always !important; }
-        .page:last-child { page-break-after: avoid !important; margin-bottom: 0 !important; }
-        .page.landscape { width: 297mm !important; min-height: 210mm !important; max-width: 297mm !important; /*max-height: 210mm !important;*/ }
-        .header { background: #fff !important; border-bottom: 1px solid #000 !important; padding: 0 0 10px 0 !important; height: auto !important; box-sizing: border-box !important; display: flex; align-items: flex-end; justify-content: space-between; }
-        .header .logo { height: 60px; width: 60px; object-fit: contain; }
-        .header .doc-title { flex: 1; margin: 0 18px; font-size: 24pt !important; font-weight: bold; text-align: center; color: #000 !important; }
-        .header .revision { min-width: 60px; text-align: right; font-size: 12pt; color: #000 !important; }
-        .header .revision .index, .header .revision .num { color: #000 !important; }
-        .page .content { flex-grow: 1 !important; padding: 10px 0 0 0 !important; /* overflow: hidden !important; */ gap: 12px !important; box-sizing: border-box !important; width: 100% !important; display: flex; flex-direction: column; align-items: normal; }
-        .page .pagination { display: block !important; position: absolute !important; bottom: 5mm !important; left: 15mm !important; right: 15mm !important; text-align: right !important; font-size: 10pt !important; color: #000 !important; width: auto !important; }
-        .page .img-drop { border: none !important; min-height: 10cm; max-height: 15cm; width: 100%; background: #fff !important; display: flex; justify-content: center; align-items: center; margin: 20px auto; }
-        .page .img-drop img { max-width: 100% !important; max-height: 100% !important; height: auto !important; object-fit: contain; }
-        .rte-area { background: #fff !important; border: none !important; min-height: auto; padding: 0; }
-        .page-table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; margin: 10px 0; }
-        .page-table th, .page-table td { border: 1px solid #000 !important; padding: 5px 8px; word-break: break-word; vertical-align: middle; text-align: left; }
-        .page-table th { background: #eee !important; font-weight: bold; }
-        .page .chapter-title, .page .h1, .page .h2, .page .h3, .page .h4 { color: #000 !important; font-weight: bold; margin: 20px 0 10px 0; }
-        .page h1, .page .h1 { font-size: 22pt !important; } .page h2, .page .h2 { font-size: 18pt !important; }
-        .page h3, .page .h3 { font-size: 16pt !important; } .page h4, .page .h4 { font-size: 14pt !important; }
-        .cover-title { font-size: 30pt; text-align: center; margin: 40px 0; }
-        #table-of-contents { list-style-type: none; padding-left: 0; font-size: 1.2em; }
-        #table-of-contents li { margin-bottom: 5px; }
-        #table-of-contents .toc-title { display: inline-block; width: 90%; }
-        #table-of-contents .toc-page-num { display: inline-block; width: 10%; text-align: right; }
+        body {
+            background: #fff;
+            font-family: 'Segoe UI', 'Arial', sans-serif; /* Police du mode édition */
+            font-size: 12pt;
+            margin: 0;
+            padding: 0;
+        }
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            max-width: 210mm;
+            max-height: 297mm;
+            box-sizing: border-box !important;
+            box-shadow: none !important;
+			border: 1px solid #555 !important;
+            border-radius: 3px !important;
+            margin: 0 auto 10mm auto !important; /* Marge en bas pour séparation visuelle, auto pour centrer */
+            padding: 10mm 15mm 10mm 15mm !important; /* Marges A4 approx (H, D, B, G) */
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
+            page-break-after: always !important;
+        }
+        .page:last-child {
+            page-break-after: avoid !important;
+            margin-bottom: 0 !important;
+        }
+        .page.landscape {
+            width: 297mm !important;
+            min-height: 210mm !important;
+            max-width: 297mm !important;
+            max-height: 210mm !important;
+        }
+        .header {
+            background: #fff !important;
+            border-bottom: 1px solid #000 !important;
+            padding: 0 0 10px 0 !important;
+            height: auto !important;
+            box-sizing: border-box !important;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+        .header .logo {
+            height: 60px; /* Conserver une taille fixe ou la rendre relative si possible */
+            width: 60px;
+            object-fit: contain;
+        }
+        .header .doc-title {
+            flex: 1;
+            margin: 0 18px;
+            font-size: 24pt !important;
+            font-weight: bold;
+            text-align: center;
+            color: #000 !important;
+        }
+        .header .revision {
+            min-width: 60px;
+            text-align: right;
+            font-size: 12pt; /* Ajusté pour être cohérent */
+            color: #000 !important;
+        }
+        .header .revision .index, .header .revision .num {
+             color: #000 !important;
+        }
+        .page .content {
+            flex-grow: 1 !important;
+            padding: 10px 0 0 0 !important;
+            overflow: hidden !important;
+            gap: 12px !important;
+            box-sizing: border-box !important;
+            width: 100% !important;
+            display: flex; /* Ajouté pour que les éléments enfants puissent être gérés */
+            flex-direction: column; /* Les objets sont empilés verticalement */
+            align-items: normal; /* Ou 'stretch' selon le besoin */
+        }
+        .page .pagination {
+            display: block !important;
+            position: absolute !important;
+            bottom: 5mm !important;
+            left: 15mm !important;
+            right: 15mm !important;
+            text-align: right !important; /* Modifié pour aligner à droite comme demandé précédemment */
+            font-size: 10pt !important;
+            color: #000 !important;
+            width: auto !important;
+        }
+        .page .img-drop { /* Pour la page de garde si une image y est présente */
+            border: none !important;
+            min-height: 10cm; /* Hauteur indicative, sera remplie par l'image */
+            max-height: 15cm;
+            width: 100%;
+            background: #fff !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px auto; /* Centrer le bloc image */
+        }
+        .page .img-drop img {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            height: auto !important;
+            object-fit: contain;
+        }
+        .rte-area { /* Styles pour les zones de texte enrichi */
+            background: #fff !important;
+            border: none !important;
+            min-height: auto; /* Laisser le contenu déterminer la hauteur */
+            padding: 0; /* Le padding est déjà géré par .page ou .content */
+        }
+        .page-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            table-layout: fixed !important; /* ou auto si le contenu doit dicter la largeur */
+            margin: 10px 0;
+        }
+        .page-table th, .page-table td {
+            border: 1px solid #000 !important;
+            padding: 5px 8px; /* Ajuster le padding des cellules */
+            word-break: break-word;
+            vertical-align: middle;
+            text-align: left;
+        }
+        .page-table th {
+            background: #eee !important;
+            font-weight: bold;
+        }
+        .page .chapter-title, .page h1, .page h2, .page h3, .page h4 { /* Styles pour les titres */
+            color: #000 !important;
+            font-weight: bold;
+            margin: 20px 0 10px 0;
+        }
+        .page h1, .page .h1 { font-size: 18pt !important; }
+        .page h2, .page .h2 { font-size: 16pt !important; }
+        .page h3, .page .h3 { font-size: 14pt !important; }
+        .page h4, .page .h4 { font-size: 13pt !important; }
+
+        /* Styles spécifiques pour la page de garde (idx === 0) */
+        .cover-title {
+            font-size: 30pt;
+            text-align: center;
+            margin: 40px 0; /* Espacement pour le titre de la page de garde */
+        }
+        /* Styles pour le sommaire (idx === 1) */
+        #table-of-contents {
+            list-style-type: none;
+            padding-left: 0; /* Pas de padding par défaut pour ol */
+            font-size: 1.1em; /* Un peu plus grand pour le sommaire */
+        }
+        #table-of-contents li {
+            margin-bottom: 2px; /* Espacement entre les items du sommaire */
+        }
     </style>
 </head>
 <body>
@@ -1305,11 +1358,75 @@ function exportCleanHTML() {
     URL.revokeObjectURL(a.href);
 }
 
+function paginateObjects(idx) {
+    if (idx < 2) return;
+    setTimeout(() => {
+        const pageDivs = document.querySelectorAll('.page');
+        let currentPageIdx = idx;
+        let hasPaginated = false;
+        while (currentPageIdx < pages.length) {
+            const currentPage = pages[currentPageIdx];
+            const thisPageDiv = pageDivs[currentPageIdx];
+            if (!thisPageDiv) break;
+            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
+            if (!chapterObjs) break;
+            const pxLimite = 25 * 37.8;
+            let cumulated = 0;
+            let splitAt = -1;
+            const children = Array.from(chapterObjs.children);
+            for (let i = 0; i < children.length; i++) {
+                if (children[i].classList.contains('drop-target')) continue; // Ignorer les drop-targets dans le calcul de hauteur
+                let h = children[i].offsetHeight;
+                if (cumulated + h > pxLimite) {
+                    // Trouver l'index de l'objet correspondant dans currentPage.objects
+                    // Les enfants de chapterObjs sont [drop, obj, drop, obj, ...]
+                    // L'objet réel est à (i-1)/2 si i est l'index de l'élément visuel (el)
+                    // Ou plutôt, on compte les éléments réels
+                    let realObjIndex = 0;
+                    let currentChildIndex = 0;
+                    for(let k=0; k < children.length; k++){
+                        if(!children[k].classList.contains('drop-target')){
+                            if(currentChildIndex === i) break;
+                            realObjIndex++;
+                        }
+                        currentChildIndex++;
+                    }
+                    splitAt = realObjIndex;
+                    break;
+                }
+                if(!children[i].classList.contains('drop-target')) cumulated += h;
+            }
+            if (splitAt > -1 && splitAt < currentPage.objects.length) { // S'assurer que splitAt est valide
+                let overflowObjects = currentPage.objects.slice(splitAt);
+                currentPage.objects = currentPage.objects.slice(0, splitAt);
+                let nextPage = pages[currentPageIdx + 1];
+                if (!nextPage || nextPage.type !== currentPage.type) { //TODO: vérifier si le type de page doit être identique
+                    nextPage = { type: 'chapter', objects: [] }; // Type par défaut pour une nouvelle page de contenu
+                    pages.splice(currentPageIdx + 1, 0, nextPage);
+                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
+                }
+                nextPage.objects = overflowObjects.concat(nextPage.objects);
+                hasPaginated = true;
+                // Il faut re-rendre pour que les mesures de la page suivante soient correctes
+                renderDocument(); // Potentiellement coûteux, mais nécessaire pour la précision
+                currentPageIdx++;
+            } else {
+                break;
+            }
+        }
+        if (hasPaginated) {
+            for (let i = pages.length - 1; i >= 2; i--) {
+                if (pages[i].objects && pages[i].objects.length === 0 && pages[i].type !== 'cover' && pages[i].type !== 'toc') {
+                    pages.splice(i, 1);
+                    orientation.splice(i, 1);
+                }
+            }
+            updateAllChapterNumbers(); // Appel final pour tout recalculer et re-rendre
+        }
+    }, 100); // Augmenter le délai pour s'assurer que le DOM est stable
+}
+
 // La fonction paginatePage est un alias ou une version précédente de paginateObjects.
-// Je vais la laisser pour l'instant au cas où elle serait appelée ailleurs, mais paginateObjects semble plus complète.
-// Idéalement, il faudrait consolider.
 function paginatePage(idx) {
     paginateObjects(idx);
 }
-
-[end of app.js]
