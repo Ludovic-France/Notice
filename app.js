@@ -105,17 +105,43 @@ function initDocument() {
             }
             // Handle nested H2s if defined with a key like "H2_items"
             if (chapEntry.H2_items && Array.isArray(chapEntry.H2_items)) {
-                chapEntry.H2_items.forEach(h2Entry => {
+                chapEntry.H2_items.forEach(h2Entry => { // Boucle sur chaque item H2
                     if (h2Entry.H2) {
+                        // Ajoute l'objet H2 à pageObjects
                         pageObjects.push({
                             type: "h2",
                             text: h2Entry.H2,
                             originalText: h2Entry.H2,
-                            id: h2Entry.id || generateUniqueId() // Assurer un ID
+                            id: h2Entry.id || generateUniqueId()
                         });
+
+                        // Traiter les H3_items de CE h2Entry spécifique
+                        if (h2Entry.H3_items && Array.isArray(h2Entry.H3_items)) {
+                            h2Entry.H3_items.forEach(h3Entry => { // Boucle sur chaque item H3 sous le H2 courant
+                                if (h3Entry.H3) {
+                                    // Ajoute l'objet H3 à pageObjects
+                                    pageObjects.push({
+                                        type: "h3",
+                                        text: h3Entry.H3,
+                                        originalText: h3Entry.H3,
+                                        id: h3Entry.id || generateUniqueId()
+                                    });
+                                    // Pour les H4 enfants de H3, la logique serait imbriquée ici:
+                                    // if (h3Entry.H4_items && Array.isArray(h3Entry.H4_items)) { ... }
+                                }
+                            });
+                        }
                     }
                 });
             }
+            // Note: Si vous avez des H3 en tant que frères de H2 (directement sous H1),
+            // le bloc de code pour chapEntry.H3_items que vous aviez initialement
+            // devrait être placé ici, en dehors de la boucle H2_items.
+            // Exemple (si nécessaire) :
+            // if (chapEntry.H3_items_direct && Array.isArray(chapEntry.H3_items_direct)) {
+            //     chapEntry.H3_items_direct.forEach(h3DirectEntry => { /* ... */ });
+            // }
+
             if (pageObjects.length > 0) {
                 pages.push({
                     type: 'chapter',
