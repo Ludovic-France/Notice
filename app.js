@@ -821,51 +821,67 @@ function appliquerRisquesSelectionnes() {
     let contentAddedOverall = false;
 
     ALL_RISKS.forEach(risque => {
-        if (!risque || typeof risque.id === 'undefined' || typeof risque.chapitreTargetName === 'undefined') {
-            console.warn("Objet risque malformé dans ALL_RISKS:", risque);
-            return; // Passer à l'élément suivant
+        if (!risque || typeof risque.id === 'undefined' ||
+            typeof risque.chapitreTargetName === 'undefined' ||
+            typeof risque.titreType === 'undefined' ||
+            !/^h[1-4]$/.test(risque.titreType)) {
+            console.warn("Objet risque malformé ou type de titre de risque invalide dans ALL_RISKS:", risque);
+            return;
         }
 
         const checkbox = document.getElementById(risque.id);
         if (checkbox && checkbox.checked) {
-            let targetPage = null;
-            let targetPageIndex = -1;
-            let chapterObjectContainer = null;
 
-            // Trouver la page et l'array d'objets du chapitre cible
+            const niveauTitreRisque = parseInt(risque.titreType.substring(1));
+            let parentTitreType;
+
+            if (niveauTitreRisque > 1) {
+                parentTitreType = "h" + (niveauTitreRisque - 1);
+            } else {
+                console.warn(`Le risque '${risque.titreText}' (type ${risque.titreType}) ne peut pas être inséré car il n'a pas de niveau parent Hn-1 standard. Les risques de type H1 ne sont pas auto-insérables sous un parent.`);
+                alert(`Le risque "${risque.titreText}" (${risque.titreType}) ne peut pas être automatiquement placé car il est de niveau H1. Veuillez l'insérer manuellement ou définir un type de titre H2, H3 ou H4 pour le risque.`);
+                return; // Passer au risque suivant
+            }
+
+            let parentObjectContainer = null;
+            let parentObjIndex = -1;
+            let insertionPageIndex = -1;
+
             for (let i = 0; i < pages.length; i++) {
                 const page = pages[i];
                 if (page.objects && Array.isArray(page.objects)) {
-                    for (const obj of page.objects) {
-                        // Comparaison insensible à la casse et aux espaces pour plus de robustesse
-                        const h1Text = (obj.originalText || obj.text || "").trim().toLowerCase();
-                        const targetName = (risque.chapitreTargetName || "").trim().toLowerCase();
-                        if (obj.type === 'h1' && h1Text === targetName) {
-                            targetPage = page; // On a trouvé la page
-                            targetPageIndex = i;
-                            chapterObjectContainer = page.objects; // Le conteneur est celui de la page actuelle
+                    for (let j = 0; j < page.objects.length; j++) {
+                        const currentObj = page.objects[j];
+                        const currentObjText = (currentObj.originalText || currentObj.text || "").trim().toLowerCase();
+                        const targetParentName = (risque.chapitreTargetName || "").trim().toLowerCase();
+
+                        if (currentObj.type === parentTitreType && currentObjText === targetParentName) {
+                            parentObjectContainer = page.objects;
+                            parentObjIndex = j;
+                            insertionPageIndex = i;
                             break;
                         }
                     }
                 }
-                if (targetPage) break;
+                if (parentObjectContainer) break;
             }
 
-            // Si le chapitre H1 n'est pas trouvé, chercher un H2, etc. (logique plus complexe, pour l'instant on se limite aux H1)
-            // Alternativement, on pourrait chercher le chapitre sur plusieurs pages si un chapitre H1 peut s'étendre.
-            // Pour l'instant, on suppose qu'un chapitre H1 est contenu sur une seule page et que ses sous-objets sont dans le même `page.objects`.
-
-            if (chapterObjectContainer) {
-                // Vérification simple pour éviter les doublons (basée sur le texte du titre du risque)
-                const alreadyExists = chapterObjectContainer.some(obj =>
-                    obj.type === risque.titreType &&
-                    (obj.text === risque.titreText || obj.originalText === risque.titreText)
-                );
+            if (parentObjectContainer && parentObjIndex !== -1) {
+                // Vérifier si le contenu du risque existe déjà juste après le parent trouvé.
+                // Cela nécessite de regarder les objets suivants pour le titre spécifique du risque.
+                let alreadyExists = false;
+                if (parentObjIndex + 1 < parentObjectContainer.length) {
+                    const nextObj = parentObjectContainer[parentObjIndex + 1];
+                    if (nextObj.type === risque.titreType &&
+                        (nextObj.text === risque.titreText || nextObj.originalText === risque.titreText)) {
+                        alreadyExists = true;
+                    }
+                }
+                // Une vérification plus robuste pourrait scanner tous les éléments après le parentObjIndex jusqu'au prochain titre de même niveau ou supérieur que le parent.
+                // Pour l'instant, la vérification simple ci-dessus est un bon début.
 
                 if (alreadyExists) {
-                    console.log(`Le contenu pour '${risque.titreText}' existe déjà dans le chapitre '${risque.chapitreTargetName}'. Ajout ignoré.`);
-                    // alert(`Le contenu pour "${risque.titreText}" existe déjà et ne sera pas rajouté.`);
-                    // On pourrait choisir de ne pas alerter pour chaque doublon pour ne pas être trop intrusif.
+                    console.log(`Le contenu pour '${risque.titreText}' semble déjà exister sous '${risque.chapitreTargetName}'. Ajout ignoré.`);
                 } else {
                     const newTitleObj = {
                         type: risque.titreType,
@@ -873,28 +889,29 @@ function appliquerRisquesSelectionnes() {
                         originalText: risque.titreText,
                         id: generateUniqueId()
                     };
-                    chapterObjectContainer.push(newTitleObj);
 
                     const newContentObj = {
                         type: "text",
                         html: risque.contenuHTML
                     };
-                    chapterObjectContainer.push(newContentObj);
+
+                    // Insérer après l'objet parent
+                    parentObjectContainer.splice(parentObjIndex + 1, 0, newTitleObj, newContentObj);
                     contentAddedOverall = true;
-                    console.log(`Contenu pour '${risque.titreText}' ajouté au chapitre '${risque.chapitreTargetName}' sur la page ${targetPageIndex + 1}.`);
+                    console.log(`Contenu pour '${risque.titreText}' ajouté sous '${risque.chapitreTargetName}' (type ${parentTitreType}) sur la page ${insertionPageIndex + 1}.`);
                 }
             } else {
-                console.warn(`Chapitre cible H1 '${risque.chapitreTargetName}' non trouvé pour le risque '${risque.id}'.`);
-                alert(`Le chapitre H1 nommé "${risque.chapitreTargetName}" n'a pas été trouvé pour le risque "${risque.titreText}". Veuillez vérifier qu'il existe.`);
+                console.warn(`Titre parent de type '${parentTitreType}' nommé '${risque.chapitreTargetName}' non trouvé pour le risque '${risque.titreText}'.`);
+                alert(`Le titre parent "${risque.chapitreTargetName}" (type ${parentTitreType}) n'a pas été trouvé pour le risque "${risque.titreText}".`);
             }
         }
     });
 
     if (contentAddedOverall) {
         updateAllChapterNumbers();
-        alert("Les risques sélectionnés (nouveaux) ont été appliqués aux chapitres correspondants.");
+        alert("Les nouveaux risques sélectionnés ont été appliqués aux sections correspondantes.");
     } else {
-        alert("Aucun nouveau risque à ajouter ou les chapitres cibles n'ont pas été trouvés. Vérifiez les cases cochées et les noms des chapitres H1.");
+        alert("Aucun nouveau risque à ajouter, ou les sections parentes n'ont pas été trouvées. Vérifiez les cases cochées et les noms/types des titres parents.");
     }
 }
 

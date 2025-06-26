@@ -25,12 +25,8 @@ const ChapitreData = [
     { "id": "description", "H1": "Description de l'Ensemble de la Machine", "H2_items": [
         { "id": "1", "H2": "Description graphique " },
         { "id": "2", "H2": "Usage prévu" },
-        { "id": "3", "H2": "Principales spécifications", "H3_items": [
-			{ "id": "31", "H3": "Sépcifications techniques" },
-			{ "id": "32", "H3": "Commande et affichage" },
-			{ "id": "33", "H3": "Environnement" }
-		]},
-	]},
+        { "id": "3", "H2": "Principales spécifications" }
+    ]},
     { "id": "vie", "H1": "Cycle de vie de la machine" },
     { "id": "transport", "H1": "Transport, manutention et stockage" },
     { "id": "mes", "H1": "Assemblage, Installation et Mise en Service" },
@@ -43,4 +39,4 @@ const ChapitreData = [
     { "id": "demontage", "H1": "Démontage, Mise hors Service et Mise au Rebut" },
     { "id": "annexe", "H1": "Annexe" },
     { "id": "declaration", "H1": "Déclaration de conformité" }
-]
+];
