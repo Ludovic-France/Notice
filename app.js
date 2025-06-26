@@ -9,7 +9,8 @@ const COLOR_DROP = "#eee";
 let isResizingCol = false;
 
 function normalizeColWidths(tableObj) {
-    if (!tableObj.colWidths || tableObj.colWidths.length === 0) return;
+    if (!tableObj.colWidths || tableObj.colWidths.length === 0)
+        return;
 
     let currentSum = 0;
     // Utiliser une copie pour calculer la somme pour éviter les problèmes avec parseFloat sur des valeurs déjà modifiées
@@ -40,7 +41,7 @@ function normalizeColWidths(tableObj) {
 // let chapterCounter = 0; // Commented out: No longer global for on-the-fly rendering
 
 // Pour les titres H1→H4
-// const hCounters = [0, 0, 0, 0];  // Commented out: No longer global for on-the-fly rendering
+// const hCounters = [0, 0, 0, 0];  // Commented out: No longer global for on-the - fly rendering
 
 // ---- Initialisation principale au chargement ----
 window.onload = () => {
@@ -50,7 +51,6 @@ window.onload = () => {
     // Initial calculation of chapter numbers and TOC
     updateAllChapterNumbers();
 };
-
 
 // /**
 //  * Calcule le numéro de chapitre (chapterTitle) pour la page pageIndex
@@ -144,21 +144,35 @@ function initDocument() {
         ChapitreData.forEach(chapEntry => {
             let pageObjects = [];
             if (chapEntry.H1) {
-                pageObjects.push({ type: "h1", text: chapEntry.H1, originalText: chapEntry.H1, id: chapEntry.id });
+                pageObjects.push({
+                    type: "h1",
+                    text: chapEntry.H1,
+                    originalText:
+                    chapEntry.H1,
+                    id: chapEntry.id
+                });
             }
             // Handle nested H2s if defined with a key like "H2_items"
             if (chapEntry.H2_items && Array.isArray(chapEntry.H2_items)) {
                 chapEntry.H2_items.forEach(h2Entry => {
                     if (h2Entry.H2) {
-                        pageObjects.push({ type: "h2", text: h2Entry.H2, originalText: h2Entry.H2, id: h2Entry.id });
+                        pageObjects.push({
+                            type: "h2",
+                            text: h2Entry.H2,
+                            origina
+                            lText: h2Entry.H2,
+                            id: h2Entry.id
+                        });
                     }
                 });
             }
-            // Add more specific H3, H4 handling if your data structure has them at this initial level
+            // Add more specific H3, H4 handling if your data structure has them
+            at this initial level
 
             if (pageObjects.length > 0) {
                 pages.push({
-                    type: 'chapter', // Keep a general page type, or adapt if needed
+                    type: 'chapter', // Keep a general page type, or adapt if ne
+                    eded
                     objects: pageObjects
                 });
                 orientation.push("portrait");
@@ -166,7 +180,8 @@ function initDocument() {
         });
     }
     renderDocument();
-    // updateAllChapterNumbers will be called by window.onload after initDocument
+    // updateAllChapterNumbers will be called by window.onload after initDocumen
+    t
 }
 
 /* --------- Affichage du document complet ---------- */
@@ -181,7 +196,8 @@ function renderDocument() {
             updateSelectionClass();
             e.stopPropagation(); // évite sélection multiple
         };
-        if (idx === selectedPage) div.classList.add("selected");
+        if (idx === selectedPage)
+            div.classList.add("selected");
         container.appendChild(div);
     });
     updateSelectionClass();
@@ -192,7 +208,8 @@ function renderPage(page, idx) {
     // Conteneur principal de la page
     let div = document.createElement('div');
     div.className = "page";
-    if (orientation[idx] === "landscape") div.classList.add("landscape");
+    if (orientation[idx] === "landscape")
+        div.classList.add("landscape");
 
     // ---- En-tête ----
     let header = document.createElement('div');
@@ -209,7 +226,7 @@ function renderPage(page, idx) {
         docTitle.contentEditable = "true";
         docTitle.spellcheck = false;
         docTitle.innerText = page.docTitle || "Titre du document";
-        docTitle.addEventListener('blur', function() {
+        docTitle.addEventListener('blur', function () {
             pages[0].docTitle = docTitle.innerText;
         });
     } else {
@@ -221,11 +238,12 @@ function renderPage(page, idx) {
     revBox.className = "revision";
     revBox.innerHTML = `
         <div class="index">${INDEX_REV}</div>
-        <div class="num" contenteditable="${idx === 0 ? 'true' : 'false'}" spellcheck="false">${pages[0].editableNum || "900000"}</div>
+        <div class="num" contenteditable="${idx === 0 ? 'true' : 'false'}" spell
+check="false">${pages[0].editableNum || "900000"}</div>
     `;
     if (idx === 0) {
         let numDiv = revBox.querySelector('.num');
-        numDiv.addEventListener('blur', function() {
+        numDiv.addEventListener('blur', function () {
             pages[0].editableNum = numDiv.innerText;
         });
     }
@@ -241,33 +259,48 @@ function renderPage(page, idx) {
         title.style.fontSize = "30pt";
         title.className = "doc-title";
         title.innerText = page.title || "Notice : Untel";
-        title.addEventListener('blur', function() {
+        title.addEventListener('blur', function () {
             page.title = title.innerText;
         });
-        title.onclick = function(e) {
-            selectedElement = { pageIdx: idx, objIdx: "mainTitle", type: "mainTitle" };
-            document.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
+        title.onclick = function (e) {
+            selectedElement = {
+                pageIdx: idx,
+                objIdx: "mainTitle",
+                type: "mainTi
+                tle"
+            };
+            document.querySelectorAll('.selected').forEach(n => n.classList.remo
+                ve('selected'));
             title.classList.add('selected');
             e.stopPropagation();
         };
-        if (selectedElement && selectedElement.pageIdx === idx && selectedElement.objIdx === "mainTitle")
+        if (selectedElement && selectedElement.pageIdx === idx && selectedElemen
+            t.objIdx === "mainTitle")
             title.classList.add('selected');
         content.appendChild(title);
 
         let imgDrop = document.createElement('div');
         imgDrop.className = "img-drop";
-        imgDrop.innerHTML = page.img ? `<img src="${page.img}" alt="image">` : '<span>Glissez une image ici</span>';
-        imgDrop.ondragover = e => { e.preventDefault(); imgDrop.style.background ="#eef"; };
-        imgDrop.ondragleave = e => { imgDrop.style.background=""; };
+        imgDrop.innerHTML = page.img ? `<img src="${page.img}" alt="image">` : '
+            <span>Glissez une image ici</span>';
+        imgDrop.ondragover = e => {
+            e.preventDefault();
+            imgDrop.style.background
+                 = "#eef";
+        };
+        imgDrop.ondragleave = e => {
+            imgDrop.style.background = "";
+        };
         imgDrop.ondrop = e => {
             e.preventDefault();
-            imgDrop.style.background="";
+            imgDrop.style.background = "";
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image')) {
                 let reader = new FileReader();
                 reader.onload = evt => {
                     page.img = evt.target.result;
-                    renderDocument(); // Could potentially call updateAllChapterNumbers if structure changes affect numbering
+                    renderDocument(); // Could potentially call updateAllChapter
+                    Numbers if structure changes affect numbering
                 };
                 reader.readAsDataURL(file);
             }
@@ -283,7 +316,7 @@ function renderPage(page, idx) {
                         imgDrop.innerHTML = '';
                         const img = document.createElement('img');
                         img.src = reader.result;
-                        img.style.maxWidth  = '100%';
+                        img.style.maxWidth = '100%';
                         img.style.maxHeight = '100%';
                         imgDrop.appendChild(img);
                         page.img = reader.result; // Save pasted image
@@ -292,66 +325,79 @@ function renderPage(page, idx) {
                     return;
                 }
             }
-            const url = e.clipboardData.getData('text/uri-list') || e.clipboardData.getData('text/plain');
+            const url = e.clipboardData.getData('text/uri-list') || e.clipboardD
+                ata.getData('text/plain');
             if (url && /^https?:\/\//.test(url)) {
                 fetch(url)
-                    .then(r => r.blob())
-                    .then(blob => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            imgDrop.innerHTML = '';
-                            const img = document.createElement('img');
-                            img.src = reader.result;
-                            img.style.maxWidth  = '100%';
-                            img.style.maxHeight = '100%';
-                            imgDrop.appendChild(img);
-                            page.img = reader.result; // Save pasted image from URL
-                        };
-                        reader.readAsDataURL(blob);
-                    })
-                    .catch(console.error);
+                .then(r => r.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        imgDrop.innerHTML = '';
+                        const img = document.createElement('img');
+                        img.src = reader.result;
+                        img.style.maxWidth = '100%';
+                        img.style.maxHeight = '100%';
+                        imgDrop.appendChild(img);
+                        page.img = reader.result; // Save pasted image from
+                        URL
+                    };
+                    reader.readAsDataURL(blob);
+                })
+                .catch(console.error);
             }
         });
         content.appendChild(imgDrop);
-		// Ajout du bloc Constructeur	
-		let constructeurBlock = document.createElement('div');
-		constructeurBlock.className = "constructeur-info";
-		constructeurBlock.style.border = "2px solid #000";
-		constructeurBlock.style.padding = "10px";
-		constructeurBlock.style.marginTop = "20px";
-		constructeurBlock.style.fontSize = "12pt";
-		constructeurBlock.style.textAlign = "left";
-		constructeurBlock.innerHTML = "<b>Constructeur : APA <br>Adresse :</b> 292 Rue de l'Epinette, 76320 CAUDEBEC Lès ELBEUF <br>☎️ +33 2.32.96.26.60";
+        // Ajout du bloc Constructeur
+        let constructeurBlock = document.createElement('div');
+        constructeurBlock.className = "constructeur-info";
+        constructeurBlock.style.border = "2px solid #000";
+        constructeurBlock.style.padding = "10px";
+        constructeurBlock.style.marginTop = "20px";
+        constructeurBlock.style.fontSize = "12pt";
+        constructeurBlock.style.textAlign = "left";
+        constructeurBlock.innerHTML = "<b>Constructeur : APA <br>Adresse
+            :</b> 292 Rue de l'Epinette, 76320 CAUDEBEC Lès ELBEUF <br>☎️ +33 2.32.96.26.60
+            ";
 
-		content.appendChild(constructeurBlock);
+        content.appendChild(constructeurBlock);
     } else if (idx === 1) { // Sommaire
-        // The TOC is now generated by generateTableOfContents(), called by updateAllChapterNumbers()
+        // The TOC is now generated by generateTableOfContents(), called by upda
+        teAllChapterNumbers()
         // This section will just create the container for the TOC.
         let tocOl = document.createElement("ol");
         tocOl.id = "table-of-contents";
         tocOl.style.fontSize = "1.3em";
-        tocOl.style.margin   = "0 0 0 24px";
-        tocOl.style.padding  = "0";
+        tocOl.style.margin = "0 0 0 24px";
+        tocOl.style.padding = "0";
 
         // Populate TOC directly here
         let itemsAddedToTOC = 0;
-        for (let i = 2; i < pages.length; i++) { // Start from page 2 (actual content pages)
+        for (let i = 2; i < pages.length; i++) { // Start from page 2 (actual co
+            ntent pages)
             const p = pages[i];
             if (Array.isArray(p.objects)) {
                 p.objects.forEach(obj => {
-                    if (/^h[1-4]$/.test(obj.type) && (obj.originalText || obj.text)) {
+                    if (/^h[1-4]$/.test(obj.type) && (obj.originalText || obj.te
+                            xt)) {
                         let li = document.createElement("li");
                         const prefix = obj.calculatedPrefix || "";
                         const textValue = obj.originalText || obj.text || "";
-                        const pageNumberOfTitle = i + 1; // i est l'index de la page contenant le titre
+                        const pageNumberOfTitle = i + 1; // i est l'index de la
+                        page contenant le titre
 
                         const anchor = document.createElement('a');
-                        anchor.href = `#live-title-${obj.id}`; // Lien vers l'ancre
-                        // Utilisation de table-like layout avec CSS pour aligner les numéros de page à droite
-                        anchor.innerHTML = `<span class="toc-title">${prefix}${textValue}</span><span class="toc-page-num">${pageNumberOfTitle}</span>`;
+                        anchor.href = `#live-title-${obj.id}`; // Lien vers l'an
+                        cre
+                        // Utilisation de table-like layout avec CSS pour aligne
+                        r les numéros de page à droite
+                        anchor.innerHTML = `<span class="toc-title">${prefix}${t
+                            extValue}</span><span class="toc-page-num">${pageNumberOfTitle}</span>`;
                         li.appendChild(anchor);
 
-                        const level = parseInt(obj.type[1]); // 1 for H1, 2 for H2, etc.
+                        const level = parseInt(obj.type[1]); // 1 for H1, 2 for
+                        H2,
+                        etc.
                         li.style.marginLeft = `${(level - 1) * 20}px`;
 
                         tocOl.appendChild(li);
@@ -363,33 +409,56 @@ function renderPage(page, idx) {
         content.appendChild(tocOl); // Add the populated OL to the content
 
         if (itemsAddedToTOC === 0) {
-            console.warn("TOC RENDER: No items were added to the TOC during renderPage(idx=1).");
+            console.warn("TOC RENDER: No items were added to the TOC during rend
+                erPage(idx=1).");
         }
 
     } else { // Autres pages
-        if (!Array.isArray(page.objects)) page.objects = [];
+        if (!Array.isArray(page.objects))
+            page.objects = [];
         let objs = document.createElement('div');
         objs.className = "chapter-objects";
 
         let dropStart = document.createElement('div');
         dropStart.className = "drop-target";
-        dropStart.addEventListener('dragover', e => { e.preventDefault(); dropStart.style.background = "#cce2ff"; });
-        dropStart.addEventListener('dragleave', e => { dropStart.style.background = COLOR_DROP; });
+        dropStart.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropSt
+            art.style.background = "#cce2ff";
+        });
+        dropStart.addEventListener('dragleave', e => {
+            dropStart.style.backgroun
+            d = COLOR_DROP;
+        });
         dropStart.addEventListener('drop', e => {
             e.preventDefault();
             dropStart.style.background = COLOR_DROP;
             const type = e.dataTransfer.getData("type");
-            if (!type) return;
+            if (!type)
+                return;
             let newObj = null;
             if (["h1", "h2", "h3", "h4"].includes(type))
-                newObj = { type: type, text: type.toUpperCase(), originalText: type.toUpperCase() }; // Store original text
+                newObj = {
+                    type: type,
+                    text: type.toUpperCase(),
+                    originalText: t
+                    ype.toUpperCase()
+                }; // Store original text
             else if (type === "text")
-                newObj = { type: "text", html: "Zone de texte" };
+                newObj = {
+                    type: "text",
+                    html: "Zone de texte"
+                };
             else if (type === "table")
-                newObj = { type: "table", rows: [["", "", ""], ["", "", ""], ["", "", ""]] };
-            if (!newObj) return;
+                newObj = {
+                    type: "table",
+                    rows: [["", "", ""], ["", "", ""], ["", "", ""]]
+                };
+            if (!newObj)
+                return;
             page.objects.unshift(newObj);
-            renderDocument(); // Re-render, numbering will be updated by manual button
+            renderDocument(); // Re-render, numbering will be updated by manual
+            button
         });
         objs.appendChild(dropStart);
 
@@ -398,13 +467,15 @@ function renderPage(page, idx) {
             if (obj.type === "chapterTitle" || /^h[1-4]$/.test(obj.type)) {
                 el = document.createElement("div");
                 el.contentEditable = "true";
-                el.className = "chapter-title" + (obj.type !== "chapterTitle" ? " " + obj.type : "");
+                el.className = "chapter-title" + (obj.type !== "chapterTitle" ?
+                        " " + obj.type : "");
                 // Assign ID for anchor
                 if (obj.id) { // Ensure obj.id exists
                     el.id = `live-title-${obj.id}`;
                 }
                 // Display stored prefix + original text
-                el.innerText = (obj.calculatedPrefix || "") + (obj.originalText || obj.text || "");
+                el.innerText = (obj.calculatedPrefix || "") + (obj.originalText
+                     || obj.text || "");
                 el.addEventListener("blur", () => {
                     // Save only the text part, not the prefix
                     const currentText = el.innerText;
@@ -414,7 +485,8 @@ function renderPage(page, idx) {
                     } else {
                         obj.originalText = currentText;
                     }
-                    obj.text = obj.originalText; // Keep obj.text consistent if other parts of code use it
+                    obj.text = obj.originalText; // Keep obj.text consistent if
+                    other parts of code use it
                     // No re-render or re-numbering here, wait for manual update
                 });
             } else if (obj.type === "text") {
@@ -422,227 +494,359 @@ function renderPage(page, idx) {
                 el.contentEditable = "true";
                 el.className = "rte-area";
                 el.innerHTML = obj.html || "";
-                el.addEventListener('blur', function() { obj.html = el.innerHTML; });
+                el.addEventListener('blur', function () {
+                    obj.html = el.innerHTML;
+                });
             } else if (obj.type === "table") {
-				if (obj.headerShaded === undefined) obj.headerShaded = false;
-				el = document.createElement('div');
-				el.className = "table-container";
+                if (obj.headerShaded === undefined)
+                    obj.headerSh
+                    aded = false;
+                el = document.createElement('div');
+                el.className = "table-container";
 
-				// Déterminer l'orientation de la page
-				let containerWidth = 710;
-				if (orientation[selectedPage] === "portrait") {
-					containerWidth = 710;
-				} else if (orientation[selectedPage] === "landscape") {
-					containerWidth = 1038;
-				}
+                // Déterminer l'orientation de la page
+                let containerWidth = 710;
+                if (orientation[selectedPage] === "portrait") {
+                    containerWidth = 710;
+                } else if (orientation[selectedPage] === "landsc
+                    ape") {
+                    containerWidth = 1038;
+                }
 
-				let table = document.createElement('table');
-				table.className = "page-table";
-				table.style.width = containerWidth + "px";
-				table.style.maxWidth = containerWidth + "px";
-				table.style.tableLayout = "fixed";
+                let table = document.createElement('table');
+                table.className = "page-table";
+                table.style.width = containerWidth + "px";
+                table.style.maxWidth = containerWidth + "px";
+                table.style.tableLayout = "fixed";
 
-				let firstRow = obj.rows.find(r => r && r.length);
-				let nbCols = firstRow ? firstRow.length : 2;
+                let firstRow = obj.rows.find(r => r && r.length);
+                let nbCols = firstRow ? firstRow.length : 2;
 
-				if (!obj.colWidths || obj.colWidths.length !== nbCols) {
-					let defaultPx = containerWidth / nbCols;
-					obj.colWidths = Array(nbCols).fill(defaultPx);
-				} else {
-					let total = obj.colWidths.reduce((a, b) => a + b, 0);
-					let scale = containerWidth / total;
-					obj.colWidths = obj.colWidths.map(w => w * scale);
-				}
+                if (!obj.colWidths || obj.colWidths.length !== n
+                    bCols) {
+                    let defaultPx = containerWidth / nbCols;
+                    obj.colWidths = Array(nbCols).fill(defau
+                            ltPx);
+                } else {
+                    let total = obj.colWidths.reduce((a, b)
+                             => a + b, 0);
+                    let scale = containerWidth / total;
+                    obj.colWidths = obj.colWidths.map(w => w
+                             * scale);
+                }
 
-				let colgroup = document.createElement('colgroup');
-				let accumulated = 0;
-				for (let c = 0; c < nbCols; c++) {
-					let col = document.createElement('col');
-					let width = Math.round(obj.colWidths[c]);
-					if (c === nbCols - 1) width = containerWidth - accumulated;
-					else accumulated += width;
-					obj.colWidths[c] = width;
-					col.style.width = width + "px";
-					colgroup.appendChild(col);
-				}
-				table.appendChild(colgroup);
-				let tbody = document.createElement('tbody');
-				obj.rows.forEach((row, i) => {
-					let tr = document.createElement('tr');
-					if (i === 0 && obj.headerShaded) {
-						tr.style.backgroundColor = "#f5f5f5";
-						tr.style.fontWeight = "bold";
-					}
-					for (let j = 0; j < (row ? row.length : 0); j++) {
-						let cellData = row[j];
-						if (cellData === null) continue;
-						let td = document.createElement('td');
-						td.contentEditable = "true";
-						td.style.verticalAlign = "middle";
-						td.style.overflow = "hidden";
-						td.style.position = "relative";
-						td.addEventListener('focus', () => {
-							const range = document.createRange();
-							range.selectNodeContents(td);
-							range.collapse(true);
-							const sel = window.getSelection();
-							sel.removeAllRanges();
-							sel.addRange(range);
-						});
-						if (typeof cellData === "object" && cellData.image) {
-							let img = document.createElement('img');
-							img.src = cellData.image;
-							img.style.width = "100%";
-							img.style.height = "100%";
-							img.style.objectFit = "contain";
-							td.appendChild(img);
-						} else {
-							let text = typeof cellData === "object" ? cellData.text : cellData;
-							td.innerText = text;
-						}
-						let colspan = (typeof cellData === "object" && cellData.colspan) ? cellData.colspan : 1;
-						let align = (typeof cellData === "object" && cellData.align) ? cellData.align : "left";
-						td.colSpan = colspan;
-						td.style.textAlign = align;
-						td.addEventListener('blur', () => {
-							if (typeof cellData === "object") {
-								if (!cellData.image) cellData.text = td.innerText;
-							} else {
-								obj.rows[i][j] = td.innerText;
-							}
-						});
-						td.addEventListener('paste', e => {
-							e.preventDefault();
-							for (let it of e.clipboardData.items) {
-								if (it.kind === "file" && it.type.startsWith("image/")) {
-									let file = it.getAsFile();
-									let reader = new FileReader();
-									reader.onload = () => {
-										td.innerHTML = "";
-										let img = document.createElement('img');
-										img.src = reader.result;
-										img.style.width = "100%";
-										img.style.height = "100%";
-										img.style.objectFit = "contain";
-										td.appendChild(img);
-										if (typeof cellData === "object") cellData.image = reader.result;
-										else obj.rows[i][j] = { image: reader.result };
-									};
-									reader.readAsDataURL(file);
-									break;
-								}
-							}
-						});
-						td.addEventListener('dragover', e => e.preventDefault());
-						td.addEventListener('drop', e => {
-							e.preventDefault();
-							if (e.dataTransfer.files.length) {
-								let file = e.dataTransfer.files[0];
-								if (file.type.startsWith("image/")) {
-									let reader = new FileReader();
-									reader.onload = () => {
-										td.innerHTML = "";
-										let img = document.createElement('img');
-										img.src = reader.result;
-										img.style.width = "100%";
-										img.style.height = "100%";
-										img.style.objectFit = "contain";
-										td.appendChild(img);
-										if (typeof cellData === "object") cellData.image = reader.result;
-										else obj.rows[i][j] = { image: reader.result };
-									};
-									reader.readAsDataURL(file);
-								}
-							} else {
-								let url = e.dataTransfer.getData('text/uri-list')
-									|| e.dataTransfer.getData('text/plain');
-								if (url.startsWith("http")) {
-									fetch(url).then(r => r.blob()).then(blob => {
-										let reader = new FileReader();
-										reader.onload = () => {
-											td.innerHTML = "";
-											let img = document.createElement('img');
-											img.src = reader.result;
-											img.style.width = "100%";
-											img.style.height = "100%";
-											img.style.objectFit = "contain";
-											td.appendChild(img);
-											if (typeof cellData === "object") cellData.image = reader.result;
-											else obj.rows[i][j] = { image: reader.result };
-										};
-										reader.readAsDataURL(blob);
-									});
-								}
-							}
-						});
-						td.addEventListener('contextmenu', e => {
-							e.preventDefault();
-							showTableMenu(e, obj, i, j);
-							setTimeout(() => td.focus(), 0);
-						});
-						if (i === 0 && j < nbCols - 1) {
-							let resizer = document.createElement('div');
-							resizer.className = "col-resizer";
-							Object.assign(resizer.style, {
-								position: "absolute", top: "0", right: "-3px", width: "6px",
-								height: "100%", cursor: "col-resize", zIndex: "10"
-							});
-							td.appendChild(resizer);
-							resizer.addEventListener('mousedown', e => {
-								e.preventDefault();
-								const startX = e.pageX;
-								const leftC = colgroup.children[j];
-								const rightC = colgroup.children[j + 1];
-								const wL = parseFloat(obj.colWidths[j]);
-								const wR = parseFloat(obj.colWidths[j + 1]);
-								document.body.style.cursor = "col-resize";
+                let colgroup = document.createElement('colgroup');
+                let accumulated = 0;
+                for (let c = 0; c < nbCols; c++) {
+                    let col = document.createElement('col');
+                    let width = Math.round(obj.colWidths[c]);
+                    if (c === nbCols - 1)
+                        width = containerW
+                            idth - accumulated;
+                    else
+                        accumulated += width;
+                    obj.colWidths[c] = width;
+                    col.style.width = width + "px";
+                    colgroup.appendChild(col);
+                }
+                table.appendChild(colgroup);
+                let tbody = document.createElement('tbody');
+                obj.rows.forEach((row, i) => {
+                    let tr = document.createElement('tr');
+                    if (i === 0 && obj.headerShaded) {
+                        tr.style.backgroundColor = "#f5f
+                            5f5";
+                        tr.style.fontWeight = "bold";
+                    }
+                    for (let j = 0; j < (row ? row.length :
+                            0); j++) {
+                        let cellData = row[j];
+                        if (cellData === null)
+                            continue;
+                        let td = document.createElement(
+                                'td');
+                        td.contentEditable = "true";
+                        td.style.verticalAlign = "middle
+                            ";
+                        td.style.overflow = "hidden";
+                        td.style.position = "relative";
+                        td.addEventListener('focus', ()
+                             => {
+                            const range = document.c
+                                reateRange();
+                            range.selectNodeContents
+                            (td);
+                            range.collapse(true);
+                            const sel = window.getSe
+                                lection();
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        });
+                        if (typeof cellData === "object"
+                             && cellData.image) {
+                            let img = document.creat
+                                eElement('img');
+                            img.src = cellData.image;
+                            img.style.width = "100%";
+                            img.style.height = "100%
+                                ";
+                            img.style.objectFit = "c
+                                ontain";
+                            td.appendChild(img);
+                        } else {
+                            let text = typeof cellDa
+                                ta === "object" ? cellData.text : cellData;
+                            td.innerHTML = text; // M
+                            ODIFIÉ: innerText->innerHTML
+                        }
+                        let colspan = (typeof cellData =
+                                 == "object" && cellData.colspan) ? cellData.colspan : 1;
+                        let align = (typeof cellData ===
+                            "object" && cellData.align) ? cellData.align : "left";
+                        td.colSpan = colspan;
+                        td.style.textAlign = align;
+                        td.addEventListener('blur', () =
+                                 > {
+                                if (typeof cellData ===
+                                    "object") {
+                                    if (!cellData.im
+                                        age)
+                                        cellData.text = td.innerHTML; // MODIFIÉ: innerText -> innerHTML
+                                } else {
+                                    obj.rows[i][j] =
+                                        td.innerHTML; // MODIFIÉ: innerText -> innerHTML
+                                }
+                            });
+                        td.addEventListener('paste', e =
+                                 > {
+                                e.preventDefault();
+                                for (let it of e.clipboa
+                                    rdData.items) {
+                                    if (it.kind ===
+                                        "file" && it.type.startsWith("image/")) {
+                                        let file
+                                             = it.getAsFile();
+                                        let read
+                                        er = new FileReader();
+                                        reader.o
+                                        nload = () => {
 
-								function onMove(ev) {
-									let d = ev.pageX - startX;
-									let nl = wL + d, nr = wR - d;
-									if (nl < 30 || nr < 30) return;
-									obj.colWidths[j] = nl;
-									obj.colWidths[j + 1] = nr;
-									leftC.style.width = nl + "px";
-									rightC.style.width = nr + "px";
-								}
+                                            td.innerHTML = "";
 
-								function onUp() {
-									document.removeEventListener('mousemove', onMove);
-									document.removeEventListener('mouseup', onUp);
-									document.body.style.cursor = "";
-								}
+                                            let img = document.createElement('img');
 
-								document.addEventListener('mousemove', onMove);
-								document.addEventListener('mouseup', onUp);
-							});
-						}
-						tr.appendChild(td);
-						if (colspan > 1) {
-							for (let k = 1; k < colspan; k++) obj.rows[i][j + k] = null;
-							j += colspan - 1;
-						}
-					}
-					tbody.appendChild(tr);
-				});
-				table.appendChild(tbody);
-				el.appendChild(table);
-			}
+                                            img.src = reader.result;
 
+                                            img.style.width = "100%";
+
+                                            img.style.height = "100%";
+
+                                            img.style.objectFit = "contain";
+
+                                            td.appendChild(img);
+
+                                            if (typeof cellData === "object")
+                                                cellData.image = reader.result;
+                                            else
+                                                obj.rows[i][j] = {
+                                                    image: reader.result
+                                                };
+                                        };
+                                        reader.r
+                                        eadAsDataURL(file);
+                                        break;
+                                    }
+                                }
+                            });
+                        td.addEventListener('dragover',
+                            e => e.preventDefault());
+                        td.addEventListener('drop', e => {
+                            e.preventDefault();
+                            if (e.dataTransfer.files
+                                .length) {
+                                let file = e.dat
+                                    aTransfer.files[0];
+                                if (file.type.st
+                                    artsWith("image/")) {
+                                    let read
+                                    er = new FileReader();
+                                    reader.o
+                                    nload = () => {
+
+                                        td.innerHTML = "";
+
+                                        let img = document.createElement('img');
+
+                                        img.src = reader.result;
+
+                                        img.style.width = "100%";
+
+                                        img.style.height = "100%";
+
+                                        img.style.objectFit = "contain";
+
+                                        td.appendChild(img);
+
+                                        if (typeof cellData === "object")
+                                            cellData.image = reader.result;
+                                        else
+                                            obj.rows[i][j] = {
+                                                image: reader.result
+                                            };
+                                    };
+                                    reader.r
+                                    eadAsDataURL(file);
+                                }
+                            } else {
+                                let url = e.data
+                                    Transfer.getData('text/uri-list')
+                                     || e.dat
+                                    aTransfer.getData('text/plain');
+                                if (url.startsWi
+                                    th("http")) {
+                                    fetch(ur
+                                        l).then(r => r.blob()).then(blob => {
+
+                                        let reader = new FileReader();
+
+                                        reader.onload = () => {
+
+                                            td.innerHTML = "";
+
+                                            let img = document.createElement('img');
+
+                                            img.src = reader.result;
+
+                                            img.style.width = "100%";
+
+                                            img.style.height = "100%";
+
+                                            img.style.objectFit = "contain";
+
+                                            td.appendChild(img);
+
+                                            if (typeof cellData === "object")
+                                                cellData.image = reader.result;
+                                            else
+                                                obj.rows[i][j] = {
+                                                    image: reader.result
+                                                };
+
+                                        };
+
+                                        reader.readAsDataURL(blob);
+                                    });
+                                }
+                            }
+                        });
+                        td.addEventListener('contextmenu
+                            ', e => {
+                            e.preventDefault();
+                            showTableMenu(e, obj, i,
+                                j);
+                            setTimeout(() => td.focu
+                                s(), 0);
+                        });
+                        if (i === 0 && j < nbCols - 1) {
+                            let resizer = document.c
+                                reateElement('div');
+                            resizer.className = "col
+                                -resizer";
+                            Object.assign(resizer.st
+                                yle, {
+                                position: "absol
+                                ute",
+                                top: "0",
+                                right: "-3px",
+                                width: "6px",
+                                height: "100%",
+                                cursor: "col-resize",
+                                zIndex: "10"
+                            });
+                            td.appendChild(resizer);
+                            resizer.addEventListener
+                            ('mousedown', e => {
+                                e.preventDefault
+                                ();
+                                const startX = e
+                                    .pageX;
+                                const leftC = co
+                                    lgroup.children[j];
+                                const rightC = c
+                                    olgroup.children[j + 1];
+                                const wL = parse
+                                    Float(obj.colWidths[j]);
+                                const wR = parse
+                                    Float(obj.colWidths[j + 1]);
+                                document.body.st
+                                yle.cursor = "col-resize";
+
+                                function onMove(
+                                    ev) {
+                                    let d =
+                                        ev.pageX - startX;
+                                    let nl =
+                                        wL + d,
+                                    nr = wR - d;
+                                    if (nl <
+                                        30 || nr < 30)
+                                        return;
+                                    obj.colW
+                                    idths[j] = nl;
+                                    obj.colW
+                                    idths[j + 1] = nr;
+                                    leftC.st
+                                    yle.width = nl + "px";
+                                    rightC.s
+                                    tyle.width = nr + "px";
+                                }
+
+                                function onUp() {
+                                    document
+                                    .removeEventListener('mousemove', onMove);
+                                    document
+                                    .removeEventListener('mouseup', onUp);
+                                    document
+                                    .body.style.cursor = "";
+                                }
+
+                                document.addEven
+                                tListener('mousemove', onMove);
+                                document.addEven
+                                tListener('mouseup', onUp);
+                            });
+                        }
+                        tr.appendChild(td);
+                        if (colspan > 1) {
+                            for (let k = 1; k < cols
+                                pan; k++)
+                                obj.rows[i][j + k] = null;
+                            j += colspan - 1;
+                        }
+                    }
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                el.appendChild(table);
+            }
 
             if (el) {
                 el.setAttribute("draggable", "true");
-                el.addEventListener('dragstart', function(e) {
+                el.addEventListener('dragstart', function (e) {
                     e.dataTransfer.effectAllowed = "move";
                     e.dataTransfer.setData('move-obj-oid', oid + "");
                     e.dataTransfer.setData('move-obj-page', idx + "");
                     el.classList.add('dragging');
                 });
-                el.addEventListener('dragend', function() {
+                el.addEventListener('dragend', function () {
                     el.classList.remove('dragging');
                 });
-                el.onclick = function(e) {
-                    selectedElement = { pageIdx: idx, objIdx: oid, type: obj.type };
+                el.onclick = function (e) {
+                    selectedElement = {
+                        pageIdx: idx,
+                        objIdx: oid,
+                        type: obj.type
+                    };
                     document.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
                     el.classList.add('selected');
                     e.stopPropagation();
@@ -654,8 +858,13 @@ function renderPage(page, idx) {
 
             let dropBetween = document.createElement('div');
             dropBetween.className = "drop-target";
-            dropBetween.addEventListener('dragover', e => { e.preventDefault(); dropBetween.style.background = "#cce2ff"; });
-            dropBetween.addEventListener('dragleave', e => { dropBetween.style.background = COLOR_DROP; });
+            dropBetween.addEventListener('dragover', e => {
+                e.preventDefault();
+                dropBetween.style.background = "#cce2ff";
+            });
+            dropBetween.addEventListener('dragleave', e => {
+                dropBetween.style.background = COLOR_DROP;
+            });
             dropBetween.addEventListener('drop', e => {
                 e.preventDefault();
                 dropBetween.style.background = COLOR_DROP;
@@ -666,11 +875,21 @@ function renderPage(page, idx) {
                 if (type) { // Drag from tools
                     let newObj = null;
                     if (["h1", "h2", "h3", "h4"].includes(type))
-                        newObj = { type: type, text: type.toUpperCase(), originalText: type.toUpperCase() };
+                        newObj = {
+                            type: type,
+                            text: type.toUpperCase(),
+                            originalText: type.toUpperCase()
+                        };
                     else if (type === "text")
-                        newObj = { type: "text", html: "Zone de texte" };
+                        newObj = {
+                            type: "text",
+                            html: "Zone de texte"
+                        };
                     else if (type === "table")
-                        newObj = { type: "table", rows: [["", "", ""], ["", "", ""], ["", "", ""]] };
+                        newObj = {
+                            type: "table",
+                            rows: [["", "", ""], ["", "", ""], ["", "", ""]]
+                        };
 
                     if (newObj) {
                         page.objects.splice(oid + 1, 0, newObj);
@@ -703,18 +922,18 @@ function renderPage(page, idx) {
 
     let pagin = document.createElement('div');
     pagin.className = "pagination";
-    pagin.innerText = `Page ${idx+1} / ${pages.length}`;
+    pagin.innerText = `Page ${idx + 1} / ${pages.length}`;
     div.appendChild(content);
     div.appendChild(pagin);
 
-    div.addEventListener('click', function() {
+    div.addEventListener('click', function () {
         selectedPage = idx;
         updateSelectionClass();
     });
-    if (idx === selectedPage) div.classList.add('selected');
+    if (idx === selectedPage)
+        div.classList.add('selected');
     return div;
 }
-
 
 // ---- Nouvelle fonction pour mettre à jour tous les numéros et le sommaire ----
 function updateAllChapterNumbers() {
@@ -755,17 +974,19 @@ function updateAllChapterNumbers() {
 function updateSelectionClass() {
     document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     let pagesList = document.querySelectorAll('.page');
-    if (pagesList[selectedPage]) pagesList[selectedPage].classList.add('selected');
+    if (pagesList[selectedPage])
+        pagesList[selectedPage].classList.add('selected');
     if (selectedElement) {
         if (selectedElement.pageIdx === 0 && selectedElement.objIdx === "mainTitle") {
             let mainTitles = pagesList[0].querySelectorAll('.doc-title');
-            if (mainTitles[1]) mainTitles[1].classList.add('selected');
+            if (mainTitles[1])
+                mainTitles[1].classList.add('selected');
         } else if (selectedElement.pageIdx >= 0 && pagesList[selectedElement.pageIdx]) { // Check pageIdx validity
             // Check if on TOC page (idx 1), no specific element selection logic needed beyond page.
             // For other pages with objects:
             if (selectedElement.pageIdx >= 2) {
-                 const pageContent = pagesList[selectedElement.pageIdx].querySelector('.chapter-objects');
-                 if (pageContent) {
+                const pageContent = pagesList[selectedElement.pageIdx].querySelector('.chapter-objects');
+                if (pageContent) {
                     // The children of chapter-objects are [drop-target, el, drop-target, el, ...]
                     // So we need to adjust objIdx to find the actual element.
                     // An element is at index 2*objIdx + 1 (because drop-target is at 2*objIdx)
@@ -774,17 +995,21 @@ function updateSelectionClass() {
                     // Let's find the actual content elements directly.
                     const contentElements = Array.from(pageContent.children).filter(child => !child.classList.contains('drop-target'));
                     if (contentElements[selectedElement.objIdx]) {
-                         contentElements[selectedElement.objIdx].classList.add('selected');
+                        contentElements[selectedElement.objIdx].classList.add('selected');
                     }
-                 }
+                }
             }
         }
     }
 }
 
 function deleteSelected() {
-    if (!selectedElement) return;
-    const { pageIdx, objIdx } = selectedElement;
+    if (!selectedElement)
+        return;
+    const {
+        pageIdx,
+        objIdx
+    } = selectedElement;
     // Allow deletion from page 2 onwards
     if (pageIdx >= 2 && typeof objIdx === "number") {
         let page = pages[pageIdx];
@@ -797,12 +1022,17 @@ function deleteSelected() {
 }
 
 /* ------- Fonctions de mise en forme RTE -------- */
-function formatDoc(cmd) { document.execCommand(cmd, false, null); }
-function setColor(color) { document.execCommand("foreColor", false, color); }
+function formatDoc(cmd) {
+    document.execCommand(cmd, false, null);
+}
+function setColor(color) {
+    document.execCommand("foreColor", false, color);
+}
 function setFontSize(sz) {
     document.execCommand("fontSize", false, 7);
     let sel = window.getSelection();
-    if (!sel.rangeCount) return;
+    if (!sel.rangeCount)
+        return;
     let el = sel.anchorNode.parentNode;
     el.style.fontSize = sz;
 }
@@ -821,7 +1051,7 @@ function setupDragNDrop() {
 function addPage() {
     const newPageObject = {
         type: 'custom', // Type par défaut pour une nouvelle page vierge
-        objects: []     // Initialement aucun objet dans la nouvelle page
+        objects: []// Initialement aucun objet dans la nouvelle page
     };
 
     // Insérer la nouvelle page et son orientation après la page sélectionnée
@@ -833,7 +1063,7 @@ function addPage() {
     // Mettre à jour selectedPage pour pointer vers la nouvelle page insérée
     selectedPage = selectedPage + 1;
 
-    renderDocument();       // Rafraîchir l'affichage de toutes les pages
+    renderDocument(); // Rafraîchir l'affichage de toutes les pages
     updateSelectionClass(); // S'assurer que la nouvelle page est visuellement sélectionnée
 }
 
@@ -842,17 +1072,20 @@ function deletePage() { // Removed idx parameter, uses selectedPage
         alert("Impossible de supprimer la page de garde ou le sommaire !");
         return;
     }
-    if (pages.length <= 2) return;
+    if (pages.length <= 2)
+        return;
     pages.splice(selectedPage, 1);
     orientation.splice(selectedPage, 1);
-    if (selectedPage >= pages.length) selectedPage = pages.length - 1;
+    if (selectedPage >= pages.length)
+        selectedPage = pages.length - 1;
     selectedElement = null;
     renderDocument(); // Re-render. Numbering will be updated manually.
 }
 
 /* ------- Changement d’orientation -------- */
 function toggleOrientation(idx = null) {
-    if (idx === null) idx = selectedPage;
+    if (idx === null)
+        idx = selectedPage;
     if (idx === 0 || idx === 1) {
         alert("Impossible de changer l’orientation de la page de garde ou du sommaire.");
         return;
@@ -866,7 +1099,10 @@ function toggleOrientation(idx = null) {
 // The new updateAllChapterNumbers() button provides a soft update.
 // We can keep this as is, or change its purpose if desired.
 function refreshDocument() {
-    localStorage.setItem('noticeProject', JSON.stringify({ pages, orientation }));
+    localStorage.setItem('noticeProject', JSON.stringify({
+            pages,
+            orientation
+        }));
     location.reload();
 }
 
@@ -875,9 +1111,14 @@ function saveJSON() {
     // Before saving, ensure originalText is up-to-date from any direct DOM edits
     // This is somewhat handled by the blur event on titles, but a full sweep might be safer
     // For now, assuming blur events are sufficient.
-    const data = JSON.stringify({ pages, orientation });
+    const data = JSON.stringify({
+        pages,
+        orientation
+    });
     let a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([data], {type: "application/json"}));
+    a.href = URL.createObjectURL(new Blob([data], {
+                type: "application/json"
+            }));
     a.download = "notice.json";
     a.click();
     URL.revokeObjectURL(a.href); // Clean up
@@ -885,7 +1126,8 @@ function saveJSON() {
 
 function openJSONFile(input) {
     const file = input.files[0];
-    if (!file) return;
+    if (!file)
+        return;
     let reader = new FileReader();
     reader.onload = evt => {
         try {
@@ -918,18 +1160,26 @@ function openJSONFile(input) {
 // Ensure table menu functions are defined if not included in "..." above
 function showTableMenu(e, obj, rowIdx, colIdx) {
     let cellData = obj.rows[rowIdx][colIdx];
-    if (cellData === null) return;
+    if (cellData === null)
+        return;
 
     let oldMenu = document.getElementById('table-menu-popup');
-    if (oldMenu) oldMenu.remove();
+    if (oldMenu)
+        oldMenu.remove();
 
     let menu = document.createElement('div');
     menu.id = "table-menu-popup";
     Object.assign(menu.style, {
-        position: "fixed", top: e.clientY + "px", left: e.clientX + "px",
-        background: "#fff", border: "1px solid #999", borderRadius: "8px",
-        zIndex: 10000, boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-        fontSize: "1em", padding: "4px 0"
+        position: "fixed",
+        top: e.clientY + "px",
+        left: e.clientX + "px",
+        background: "#fff",
+        border: "1px solid #999",
+        borderRadius: "8px",
+        zIndex: 10000,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+        fontSize: "1em",
+        padding: "4px 0"
     });
 
     menu._originTable = e.currentTarget.closest('.table-container').querySelector('table');
@@ -937,14 +1187,22 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
     function alignItem(label, align) {
         let item = document.createElement('div');
         item.innerText = label;
-        Object.assign(item.style, { padding:"6px 18px", cursor:"pointer" });
+        Object.assign(item.style, {
+            padding: "6px 18px",
+            cursor: "pointer"
+        });
         item.onmouseover = () => item.style.background = "#eef";
         item.onmouseleave = () => item.style.background = "#fff";
         item.onclick = () => {
             // met à jour le modèle
             let c = obj.rows[rowIdx][colIdx];
-            if (typeof c === "object") c.align = align;
-            else obj.rows[rowIdx][colIdx] = { text: c, align };
+            if (typeof c === "object")
+                c.align = align;
+            else
+                obj.rows[rowIdx][colIdx] = {
+                    text: c,
+                    align
+                };
 
             // applique DIRECTEMENT sur le <td>
             const td = menu._originTable.rows[rowIdx].cells[colIdx];
@@ -965,14 +1223,17 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
     function structuralItem(label, fn) {
         let item = document.createElement('div');
         item.innerText = label;
-        Object.assign(item.style, { padding:"6px 18px", cursor:"pointer" });
+        Object.assign(item.style, {
+            padding: "6px 18px",
+            cursor: "pointer"
+        });
         item.onmouseover = () => item.style.background = "#eef";
         item.onmouseleave = () => item.style.background = "#fff";
         item.onclick = () => {
             fn();
             menu.remove();
             renderDocument(); // Structural changes might need full re-render
-                           // Consider if updateAllChapterNumbers() is needed too
+            // Consider if updateAllChapterNumbers() is needed too
         };
         return item;
     }
@@ -980,101 +1241,111 @@ function showTableMenu(e, obj, rowIdx, colIdx) {
     function menuItem(label, fn) { // General purpose menu item
         let item = document.createElement('div');
         item.innerText = label;
-        item.style.padding = "6px 18px"; item.style.cursor  = "pointer";
-        item.onmouseover  = () => item.style.background = "#eef";
+        item.style.padding = "6px 18px";
+        item.style.cursor = "pointer";
+        item.onmouseover = () => item.style.background = "#eef";
         item.onmouseleave = () => item.style.background = "#fff";
-        item.onclick = () => { fn(); menu.remove(); renderDocument(); };
+        item.onclick = () => {
+            fn();
+            menu.remove();
+            renderDocument();
+        };
         return item;
     }
 
     menu.appendChild(menuItem(obj.headerShaded ? "Désactiver gris de la 1ʳᵉ ligne" : "Griser la 1ʳᵉ ligne", () => {
-        obj.headerShaded = !obj.headerShaded;
-    }));
+            obj.headerShaded = !obj.headerShaded;
+        }));
     menu.appendChild(document.createElement('hr'));
     menu.appendChild(structuralItem("Ajouter colonne à droite", () => {
-        obj.rows.forEach(row => row.splice(colIdx + 1, 0, ""));
-        const w = obj.colWidths[colIdx];
-        obj.colWidths.splice(colIdx + 1, 0, w);
-	}));
+            obj.rows.forEach(row => row.splice(colIdx + 1, 0, ""));
+            const w = obj.colWidths[colIdx];
+            obj.colWidths.splice(colIdx + 1, 0, w);
+        }));
     menu.appendChild(structuralItem("Ajouter ligne dessous", () => {
-        let newRow = obj.rows[0].map(() => "");
-        obj.rows.splice(rowIdx + 1, 0, newRow);
-	}));
-   if (obj.rows[0].length > 1) {
+            let newRow = obj.rows[0].map(() => "");
+            obj.rows.splice(rowIdx + 1, 0, newRow);
+        }));
+    if (obj.rows[0].length > 1) {
         menu.appendChild(structuralItem("Supprimer colonne", () => {
-            for (let r = 0; r < obj.rows.length; r++) {
-                let cd = obj.rows[r][colIdx];
-                // fusion à gauche
-                if (cd === null) {
-                    for (let k = colIdx - 1; k >= 0; k--) {
-                        let lc = obj.rows[r][k];
-                        if (typeof lc === "object" && lc.colspan > 1) {
-                            lc.colspan--;
-                            obj.rows[r][colIdx] = "";
-                            break;
+                for (let r = 0; r < obj.rows.length; r++) {
+                    let cd = obj.rows[r][colIdx];
+                    // fusion à gauche
+                    if (cd === null) {
+                        for (let k = colIdx - 1; k >= 0; k--) {
+                            let lc = obj.rows[r][k];
+                            if (typeof lc === "object" && lc.colspan > 1) {
+                                lc.colspan--;
+                                obj.rows[r][colIdx] = "";
+                                break;
+                            }
+                        }
+                    }
+                    // début fusion
+                    else if (typeof cd === "object" && cd.colspan > 1) {
+                        let text = cd.text || "";
+                        obj.rows[r][colIdx] = text;
+                        for (let k = 1; k < cd.colspan; k++) {
+                            if (obj.rows[r][colIdx + k] !== undefined)
+                                obj.rows[r][colIdx + k] = "";
                         }
                     }
                 }
-                // début fusion
-                else if (typeof cd === "object" && cd.colspan > 1) {
-                    let text = cd.text || "";
-                    obj.rows[r][colIdx] = text;
-                    for (let k = 1; k < cd.colspan; k++) {
-                        if (obj.rows[r][colIdx + k] !== undefined) obj.rows[r][colIdx + k] = "";
-                    }
-                }
-            }
-            obj.rows.forEach(row => row.splice(colIdx, 1));
-                }));
-        }
+                obj.rows.forEach(row => row.splice(colIdx, 1));
+            }));
+    }
     // Supprimer ligne
     if (obj.rows.length > 1) {
         menu.appendChild(structuralItem("Supprimer ligne", () => {
-            obj.rows.splice(rowIdx, 1);
-        }));
+                obj.rows.splice(rowIdx, 1);
+            }));
     }
 
     // Fusionner à droite
     if (colIdx < obj.rows[rowIdx].length - 1) {
         menu.appendChild(structuralItem("Fusionner à droite", () => {
-            let cur = obj.rows[rowIdx][colIdx];
-            let next = obj.rows[rowIdx][colIdx + 1];
-            if (typeof cur === "object") {
-                cur.colspan = (cur.colspan || 1) + (next && next.colspan ? next.colspan : 1);
-                cur.text += " " + (typeof next === "object" ? next.text : next);
-            } else {
-                obj.rows[rowIdx][colIdx] = {
-                    text: cur + " " + (typeof next === "object" ? next.text : next),
-                    colspan: 2
-                };
-            }
-            obj.rows[rowIdx].splice(colIdx + 1, 1);
-        }));
+                let cur = obj.rows[rowIdx][colIdx];
+                let next = obj.rows[rowIdx][colIdx + 1];
+                if (typeof cur === "object") {
+                    cur.colspan = (cur.colspan || 1) + (next && next.colspan ? next.colspan : 1);
+                    cur.text += " " + (typeof next === "object" ? next.text : next);
+                } else {
+                    obj.rows[rowIdx][colIdx] = {
+                        text: cur + " " + (typeof next === "object" ? next.text : next),
+                        colspan: 2
+                    };
+                }
+                obj.rows[rowIdx].splice(colIdx + 1, 1);
+            }));
     }
 
     // Scinder cellule
     if (typeof cellData === "object" && cellData.colspan > 1) {
         menu.appendChild(structuralItem("Scinder cellule", () => {
-            let n = cellData.colspan;
-            obj.rows[rowIdx][colIdx] = cellData.text || "";
-            for (let i = 1; i < n; i++) obj.rows[rowIdx].splice(colIdx + 1, 0, "");
-        }));
+                let n = cellData.colspan;
+                obj.rows[rowIdx][colIdx] = cellData.text || "";
+                for (let i = 1; i < n; i++)
+                    obj.rows[rowIdx].splice(colIdx + 1, 0, "");
+            }));
     }
 
     document.body.appendChild(menu);
-	// ferme si clic à l’extérieur
+    // ferme si clic à l’extérieur
     document.addEventListener('mousedown', function hideMenu(ev) {
         if (!menu.contains(ev.target)) {
             menu.remove();
             document.removeEventListener('mousedown', hideMenu);
         }
-    }, { once: true }); // Use { once: true } for cleaner event removal
+    }, {
+        once: true
+    }); // Use { once: true } for cleaner event removal
 }
 
 // Dummy paginate functions if they are complex and not directly related to numbering for now
 function paginateObjects(idx) {
     // Pas de pagination sur la couverture ou sommaire
-    if (idx < 2) return;
+    if (idx < 2)
+        return;
     setTimeout(() => {
         const pageDivs = document.querySelectorAll('.page');
         let currentPageIdx = idx;
@@ -1083,9 +1354,11 @@ function paginateObjects(idx) {
         while (currentPageIdx < pages.length) {
             const currentPage = pages[currentPageIdx];
             const thisPageDiv = pageDivs[currentPageIdx];
-            if (!thisPageDiv) break;
+            if (!thisPageDiv)
+                break;
             const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
-            if (!chapterObjs) break;
+            if (!chapterObjs)
+                break;
 
             const pxLimite = 25 * 37.8; // 25 cm en px
             let cumulated = 0;
@@ -1108,7 +1381,11 @@ function paginateObjects(idx) {
                 // Crée ou utilise la page suivante
                 let nextPage = pages[currentPageIdx + 1];
                 if (!nextPage || nextPage.type !== currentPage.type) {
-                    nextPage = { type: currentPage.type, chapterTitle: "", objects: [] };
+                    nextPage = {
+                        type: currentPage.type,
+                        chapterTitle: "",
+                        objects: []
+                    };
                     pages.splice(currentPageIdx + 1, 0, nextPage);
                     orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
                 }
@@ -1157,8 +1434,8 @@ function exportCleanHTML() {
             max-height: 297mm;
             box-sizing: border-box !important;
             box-shadow: none !important;
-			border: 1px solid #555 !important;
-            border-radius: 3px !important;
+			border: 1px solid #555 !important; 
+            border-radius: 0 !important;
             margin: 0 auto 10mm auto !important; /* Marge en bas pour séparation visuelle, auto pour centrer */
             padding: 10mm 15mm 10mm 15mm !important; /* Marges A4 approx (H, D, B, G) */
             overflow: hidden !important;
@@ -1378,7 +1655,8 @@ function exportCleanHTML() {
                                 html += `<tr>`;
                                 if (Array.isArray(row)) {
                                     row.forEach(cell => {
-                                        if (cell === null) return; // Pour les cellules fusionnées horizontalement
+                                        if (cell === null)
+                                            return; // Pour les cellules fusionnées horizontalement
                                         const cellTag = (rowIndex === 0 && obj.headerShaded) ? 'th' : 'td';
                                         let cellContent = '';
                                         let colspan = 1;
@@ -1419,7 +1697,9 @@ function exportCleanHTML() {
 </body>
 </html>`;
 
-    const blob = new Blob([html], { type: 'text/html' });
+    const blob = new Blob([html], {
+        type: 'text/html'
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'notice_export.html';
@@ -1431,7 +1711,8 @@ function exportCleanHTML() {
 
 function paginatePage(idx) {
     // Empêche la pagination sur page de garde ou sommaire
-    if (idx < 2) return;
+    if (idx < 2)
+        return;
 
     setTimeout(() => {
         const pageDivs = document.querySelectorAll('.page');
@@ -1441,9 +1722,11 @@ function paginatePage(idx) {
         while (currentPageIdx < pages.length) {
             const currentPage = pages[currentPageIdx];
             const thisPageDiv = pageDivs[currentPageIdx];
-            if (!thisPageDiv) break;
+            if (!thisPageDiv)
+                break;
             const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
-            if (!chapterObjs) break;
+            if (!chapterObjs)
+                break;
 
             const pxLimite = 25 * 37.8;
             let cumulated = 0;
@@ -1466,7 +1749,11 @@ function paginatePage(idx) {
                 // Nouvelle page si besoin
                 let nextPage = pages[currentPageIdx + 1];
                 if (!nextPage || nextPage.type !== currentPage.type) {
-                    nextPage = { type: currentPage.type, chapterTitle: "", objects: [] };
+                    nextPage = {
+                        type: currentPage.type,
+                        chapterTitle: "",
+                        objects: []
+                    };
                     pages.splice(currentPageIdx + 1, 0, nextPage);
                     orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
                 }
