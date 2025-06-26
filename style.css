@@ -96,24 +96,25 @@ main#document {
 .page {
     background: #fff;
     width: 210mm;
-    min-height: 297mm;
-    max-width: 100vw;
-    max-height: 297mm;   /* <-- Ajoute cette ligne */
-    overflow: hidden;    /* <-- Ajoute cette ligne */
+    height: 297mm; /* Hauteur fixe A4 portrait */
+    max-width: 210mm; /* S'assurer que la largeur ne dépasse pas */
+    max-height: 297mm; /* S'assurer que la hauteur ne dépasse pas */
     box-shadow: 0 2px 20px #0003;
-    border-radius: 10px;
-    margin-bottom: 0;
+    border-radius: 10px; /* Peut-être à retirer pour un look plus "document" */
+    margin-bottom: 0; /* Maintenu depuis l'original */
     position: relative;
-    overflow: visible;
+    overflow: hidden; /* Empêche le contenu de déborder visuellement */
     display: flex;
     flex-direction: column;
+    background: #fff; /* Fond blanc explicite */
     break-after: page;
 }
 .page.landscape {
     width: 297mm;
-    min-height: 210mm;
-    max-height: 210mm;   /* <-- Ajoute cette ligne */
-    overflow: hidden;    /* <-- Ajoute cette ligne */
+    height: 210mm; /* Hauteur fixe A4 paysage */
+    max-width: 297mm;
+    max-height: 210mm;
+    /* overflow: hidden; est déjà hérité de .page */
 }
 .header {
     display: flex;
@@ -151,13 +152,14 @@ main#document {
 	font-weight: bold;
 }
 .page .content {
-    flex: 1;
+    flex: 1; /* Permet au contenu de prendre la hauteur restante après le header */
     padding: 24px 40px 24px 40px;
     display: flex;
     flex-direction: column;
     gap: 24px;
-    overflow: visible;   /* ou 'auto' si tu veux un mini-scroll */
-    max-height: 100%;    /* Ajoute cette ligne pour éviter le débordement */
+    overflow: hidden;   /* Empêche le débordement interne du contenu de la page */
+    /* max-height n'est plus nécessaire ici car .page a une hauteur fixe et overflow:hidden */
+    /* La hauteur disponible pour .content sera hauteur_page - hauteur_header - hauteur_pagination (si positionnée dans le flux) */
 }
 .page .pagination {
     position: absolute;
@@ -276,7 +278,7 @@ aside#controls button:hover {
     max-height: 25cm;   /* Par exemple, à ajuster si besoin */
 	border: 1px solid #eee;
 	border-radius: 5px;
-    overflow: hidden;
+    /* overflow: hidden; /* Retiré ici pour que le scroll potentiel soit sur .content ou .page */
 	position: relative;
 }
 .drop-target {

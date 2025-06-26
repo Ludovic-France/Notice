@@ -350,6 +350,7 @@ function renderPage(page, idx) {
             if (!newObj) return;
             page.objects.unshift(newObj);
             renderDocument();
+            paginatePage(idx); // Vérifier la pagination après l'ajout
         });
         objs.appendChild(dropStart);
 
@@ -371,14 +372,18 @@ function renderPage(page, idx) {
                     } else {
                         obj.originalText = currentText;
                     }
-                    obj.text = obj.originalText;
+                    obj.text = obj.originalText; // Assurer que obj.text est aussi mis à jour
+                    paginatePage(idx); // Vérifier la pagination après modification du texte
                 });
             } else if (obj.type === "text") {
                 el = document.createElement('div');
                 el.contentEditable = "true";
                 el.className = "rte-area";
                 el.innerHTML = obj.html || "";
-                el.addEventListener('blur', function() { obj.html = el.innerHTML; });
+                el.addEventListener('blur', function() {
+                    obj.html = el.innerHTML;
+                    paginatePage(idx); // Vérifier la pagination après modification du texte
+                });
             } else if (obj.type === "table") {
 				if (obj.headerShaded === undefined) obj.headerShaded = false;
 				el = document.createElement('div');
@@ -469,6 +474,7 @@ function renderPage(page, idx) {
 							} else {
 								obj.rows[i][j] = td.innerHTML;
 							}
+                            paginatePage(idx); // Utiliser idx qui est l'index de la page en cours de rendu
 						});
 						td.addEventListener('paste', e => {
 							e.preventDefault();
@@ -486,6 +492,7 @@ function renderPage(page, idx) {
 										td.appendChild(img);
 										if (typeof cellData === "object") cellData.image = reader.result;
 										else obj.rows[i][j] = { image: reader.result };
+                                        paginatePage(idx); // Paginer si image collée
 									};
 									reader.readAsDataURL(file);
 									break;
@@ -630,23 +637,35 @@ function renderPage(page, idx) {
                     if (newObj) {
                         page.objects.splice(oid + 1, 0, newObj);
                         renderDocument();
+                        paginatePage(idx); // Vérifier la pagination après l'ajout
                     }
                 } else if (moveOidStr !== "" && movePageStr !== "") {
                     const srcPageIdx = parseInt(movePageStr);
                     const srcOid = parseInt(moveOidStr);
+                    let refreshNeeded = false;
                     if (srcPageIdx === idx) {
                         if (srcOid !== oid && srcOid !== oid + 1) {
                             const [objMoved] = page.objects.splice(srcOid, 1);
                             let destOid = (srcOid < oid) ? oid : oid + 1;
                             page.objects.splice(destOid, 0, objMoved);
-                            renderDocument();
+                            refreshNeeded = true;
                         }
                     } else {
                         const srcPage = pages[srcPageIdx];
                         if (srcPage && Array.isArray(srcPage.objects) && srcOid < srcPage.objects.length) {
                             const [objMoved] = srcPage.objects.splice(srcOid, 1);
                             page.objects.splice(oid + 1, 0, objMoved);
-                            renderDocument();
+                            refreshNeeded = true;
+                        }
+                    }
+                    if (refreshNeeded) {
+                        renderDocument();
+                        // Paginer la page source et la page de destination
+                        paginatePage(srcPageIdx);
+                        if (srcPageIdx !== idx) {
+                            paginatePage(idx);
+                        } else { // Si source et destination sont identiques, un seul appel suffit
+                           // paginatePage(idx) est déjà implicite par srcPageIdx === idx
                         }
                     }
                 }
@@ -721,6 +740,7 @@ function deleteSelected() {
             page.objects.splice(objIdx, 1);
             selectedElement = null;
             renderDocument();
+            paginatePage(pageIdx); // Vérifier la pagination après suppression
         }
     }
 }
@@ -766,6 +786,7 @@ function deletePage() {
     if (selectedPage >= pages.length) selectedPage = pages.length - 1;
     selectedElement = null;
     renderDocument();
+    if (selectedPage >=2) paginatePage(selectedPage); // Vérifier la pagination de la page courante
 }
 
 /* ------- Changement d’orientation -------- */
@@ -777,6 +798,7 @@ function toggleOrientation(idx = null) {
     }
     orientation[idx] = (orientation[idx] === "portrait" ? "landscape" : "portrait");
     renderDocument();
+    paginatePage(idx); // Vérifier la pagination après changement d'orientation
 }
 
 /* ------- Rafraîchir (recalcule sommaire) ------- */
@@ -819,7 +841,8 @@ function openJSONFile(input) {
             });
             selectedPage = 0;
             selectedElement = null;
-            updateAllChapterNumbers();
+            updateAllChapterNumbers(); // Appelle renderDocument()
+            paginateAllPages(); // Nouvelle fonction pour vérifier toutes les pages après chargement
         } catch (e) {
             console.error("Error parsing JSON file:", e);
             alert("Erreur lors de l'ouverture du fichier JSON.");
@@ -827,6 +850,22 @@ function openJSONFile(input) {
     };
     reader.readAsText(file);
     input.value = "";
+}
+
+// Nouvelle fonction pour paginer toutes les pages de chapitre
+function paginateAllPages() {
+    console.log("paginateAllPages: Démarrage de la vérification de pagination pour toutes les pages chapitre.");
+    // setTimeout pour s'assurer que renderDocument de updateAllChapterNumbers est terminé et le DOM est stable
+    setTimeout(() => {
+        pages.forEach((page, idx) => {
+            if (page.type === 'chapter' && idx >= 2) { // On ne pagine que les pages de chapitre
+                console.log(`paginateAllPages: Vérification de la page ${idx}`);
+                paginateObjects(idx, false); // Appel direct à paginateObjects
+                                             // false car ce n'est pas un appel récursif interne de paginateObjects lui-même
+            }
+        });
+        console.log("paginateAllPages: Vérification terminée.");
+    }, 500); // Un délai un peu plus long pour s'assurer que tout est bien rendu après openJSONFile
 }
 
 /* ------- Gestion des Risques Sélectionnés ------- */
@@ -1358,75 +1397,140 @@ function exportCleanHTML() {
     URL.revokeObjectURL(a.href);
 }
 
-function paginateObjects(idx) {
-    if (idx < 2) return;
+// Nouvelle fonction paginateObjects
+function paginateObjects(idx, isRecursiveCall = false) {
+    if (idx < 2 || idx >= pages.length) { // Ne pas paginer la couverture, TOC ou index invalide
+        if (!isRecursiveCall) console.log(`paginateObjects: Page ${idx} non éligible pour pagination initiale (couverture, TOC ou hors limites).`);
+        return;
+    }
+
     setTimeout(() => {
-        const pageDivs = document.querySelectorAll('.page');
-        let currentPageIdx = idx;
-        let hasPaginated = false;
-        while (currentPageIdx < pages.length) {
-            const currentPage = pages[currentPageIdx];
-            const thisPageDiv = pageDivs[currentPageIdx];
-            if (!thisPageDiv) break;
-            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
-            if (!chapterObjs) break;
-            const pxLimite = 25 * 37.8;
-            let cumulated = 0;
-            let splitAt = -1;
-            const children = Array.from(chapterObjs.children);
-            for (let i = 0; i < children.length; i++) {
-                if (children[i].classList.contains('drop-target')) continue; // Ignorer les drop-targets dans le calcul de hauteur
-                let h = children[i].offsetHeight;
-                if (cumulated + h > pxLimite) {
-                    // Trouver l'index de l'objet correspondant dans currentPage.objects
-                    // Les enfants de chapterObjs sont [drop, obj, drop, obj, ...]
-                    // L'objet réel est à (i-1)/2 si i est l'index de l'élément visuel (el)
-                    // Ou plutôt, on compte les éléments réels
-                    let realObjIndex = 0;
-                    let currentChildIndex = 0;
-                    for(let k=0; k < children.length; k++){
-                        if(!children[k].classList.contains('drop-target')){
-                            if(currentChildIndex === i) break;
-                            realObjIndex++;
-                        }
-                        currentChildIndex++;
-                    }
-                    splitAt = realObjIndex;
-                    break;
+        const allPageDivs = document.querySelectorAll('#pages-container > .page');
+        if (idx >= allPageDivs.length) {
+            console.warn(`paginateObjects: Index ${idx} hors limites pour les divs de page rendues (longueur ${allPageDivs.length}). Probablement besoin d'un renderDocument() avant cet appel.`);
+            return;
+        }
+
+        const currentPageData = pages[idx];
+        const thisPageDiv = allPageDivs[idx];
+
+        if (!thisPageDiv || !currentPageData || currentPageData.type === 'cover' || currentPageData.type === 'toc') {
+            console.log(`paginateObjects: Page ${idx} (type ${currentPageData.type}) n'est pas un chapitre paginable.`);
+            return;
+        }
+
+        const contentDiv = thisPageDiv.querySelector('.content');
+        const chapterObjsDiv = thisPageDiv.querySelector('.chapter-objects');
+
+        if (!contentDiv || !chapterObjsDiv) {
+            console.warn(`paginateObjects: .content ou .chapter-objects manquant pour la page ${idx}.`);
+            return;
+        }
+
+        const pageStyle = getComputedStyle(thisPageDiv);
+        const contentStyle = getComputedStyle(contentDiv);
+        const headerDiv = thisPageDiv.querySelector('.header');
+        const paginationDiv = thisPageDiv.querySelector('.pagination');
+
+        const pageHeight = thisPageDiv.offsetHeight;
+        const headerHeight = headerDiv ? headerDiv.offsetHeight : 0;
+        const paginationHeight = paginationDiv ? paginationDiv.offsetHeight : 0;
+
+        const contentPaddingTop = parseFloat(contentStyle.paddingTop) || 0;
+        const contentPaddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
+
+        const grossContentHeight = pageHeight - headerHeight;
+        // Marge de 10px pour la pagination (qui est en absolute) et 10px de sécurité en plus.
+        const availableHeightForChapterObjects = grossContentHeight - contentPaddingTop - contentPaddingBottom - paginationHeight - 20;
+
+        console.log(`[Page ${idx}] PageH: ${pageHeight.toFixed(2)}, HeaderH: ${headerHeight.toFixed(2)}, ContentPadT: ${contentPaddingTop.toFixed(2)}, ContentPadB: ${contentPaddingBottom.toFixed(2)}, PaginationH: ${paginationHeight.toFixed(2)}, AvailableHForChapterObjects: ${availableHeightForChapterObjects.toFixed(2)}`);
+
+        let accumulatedHeight = 0;
+        let splitAtIndex = -1;
+
+        const renderedObjectElements = Array.from(chapterObjsDiv.children)
+                                         .filter(child => child.offsetParent !== null && !child.classList.contains('drop-target'));
+
+        if (currentPageData.objects.length !== renderedObjectElements.length) {
+             console.warn(`[Page ${idx}] Incohérence: ${currentPageData.objects.length} objets de données vs ${renderedObjectElements.length} éléments rendus.`);
+        }
+
+        for (let i = 0; i < renderedObjectElements.length; i++) {
+            if (i >= currentPageData.objects.length) break; // Sécurité
+
+            const element = renderedObjectElements[i];
+            const elementHeight = element.offsetHeight;
+            const elementStyle = getComputedStyle(element);
+            const marginTop = parseFloat(elementStyle.marginTop) || 0;
+            const marginBottom = parseFloat(elementStyle.marginBottom) || 0;
+
+            const gapProperty = getComputedStyle(chapterObjsDiv).gap;
+            const gap = (i > 0 && gapProperty !== 'normal') ? (parseFloat(gapProperty) || 0) : 0;
+            const totalElementHeightWithMarginsAndGap = elementHeight + marginTop + marginBottom + gap;
+
+            console.log(`  [Page ${idx}][Obj ${i}] height: ${elementHeight.toFixed(2)}, marginTop: ${marginTop.toFixed(2)}, marginBottom: ${marginBottom.toFixed(2)}, gap: ${gap.toFixed(2)}, total: ${totalElementHeightWithMarginsAndGap.toFixed(2)}. Accumulated: ${accumulatedHeight.toFixed(2)}`);
+
+            if (accumulatedHeight + totalElementHeightWithMarginsAndGap > availableHeightForChapterObjects) {
+                // Si c'est le premier élément et qu'il déborde, mais qu'il n'est pas seul, on le déplace.
+                if (i === 0 && currentPageData.objects.length > 1) {
+                    splitAtIndex = 0;
+                    console.log(`  [Page ${idx}] Premier élément (index 0) déborde et n'est pas seul. splitAtIndex = 0.`);
+                // Si ce n'est pas le premier élément et qu'il déborde.
+                } else if (i > 0) {
+                    splitAtIndex = i;
+                    console.log(`  [Page ${idx}] Élément ${i} déborde. splitAtIndex = ${i}.`);
+                // Si c'est le premier élément, qu'il est seul et qu'il déborde.
+                } else {
+                    console.log(`  [Page ${idx}] Premier et unique élément (index 0) déborde. Aucun déplacement possible pour cet élément.`);
+                    splitAtIndex = -1; // Aucun découpage ne sera fait pour cet élément trop grand.
                 }
-                if(!children[i].classList.contains('drop-target')) cumulated += h;
-            }
-            if (splitAt > -1 && splitAt < currentPage.objects.length) { // S'assurer que splitAt est valide
-                let overflowObjects = currentPage.objects.slice(splitAt);
-                currentPage.objects = currentPage.objects.slice(0, splitAt);
-                let nextPage = pages[currentPageIdx + 1];
-                if (!nextPage || nextPage.type !== currentPage.type) { //TODO: vérifier si le type de page doit être identique
-                    nextPage = { type: 'chapter', objects: [] }; // Type par défaut pour une nouvelle page de contenu
-                    pages.splice(currentPageIdx + 1, 0, nextPage);
-                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
-                }
-                nextPage.objects = overflowObjects.concat(nextPage.objects);
-                hasPaginated = true;
-                // Il faut re-rendre pour que les mesures de la page suivante soient correctes
-                renderDocument(); // Potentiellement coûteux, mais nécessaire pour la précision
-                currentPageIdx++;
-            } else {
                 break;
             }
+            accumulatedHeight += totalElementHeightWithMarginsAndGap;
         }
-        if (hasPaginated) {
-            for (let i = pages.length - 1; i >= 2; i--) {
-                if (pages[i].objects && pages[i].objects.length === 0 && pages[i].type !== 'cover' && pages[i].type !== 'toc') {
-                    pages.splice(i, 1);
-                    orientation.splice(i, 1);
+        console.log(`[Page ${idx}] Fin boucle. AccumulatedHeight: ${accumulatedHeight.toFixed(2)}, splitAtIndex: ${splitAtIndex}`);
+
+        if (splitAtIndex > -1 && splitAtIndex < currentPageData.objects.length) {
+            // Vérification supplémentaire: ne pas déplacer le seul objet d'une page s'il est trop grand
+            if (currentPageData.objects.length === 1 && splitAtIndex === 0) {
+                console.warn(`[Page ${idx}] Tentative de déplacement du seul objet de la page car il est trop grand. Annulation pour éviter boucle.`);
+            } else {
+                let objectsToMove = currentPageData.objects.slice(splitAtIndex);
+                currentPageData.objects = currentPageData.objects.slice(0, splitAtIndex);
+
+                let nextPageIdx = idx + 1;
+                let nextPageData = pages[nextPageIdx];
+
+                // Si la page suivante n'existe pas, ou si ce n'est pas une page de chapitre standard, on en crée une.
+                if (!nextPageData || nextPageData.type === 'cover' || nextPageData.type === 'toc' || nextPageData.type !== 'chapter') {
+                    console.log(`[Page ${idx}] Création d'une nouvelle page (type chapter) après ${idx} pour les objets débordants.`);
+                    const newPageTemplate = { type: 'chapter', objects: [] }; // Toujours créer des pages 'chapter' pour le contenu
+                    pages.splice(nextPageIdx, 0, newPageTemplate);
+                    orientation.splice(nextPageIdx, 0, orientation[idx]); // Hériter de l'orientation
+                    nextPageData = newPageTemplate;
                 }
+
+                nextPageData.objects = objectsToMove.concat(nextPageData.objects || []);
+                console.log(`[Page ${idx}] ${objectsToMove.length} objets déplacés vers la page ${nextPageIdx}.`);
+
+                // Il est crucial de mettre à jour le document (DOM et numérotation)
+                updateAllChapterNumbers(); // Appelle renderDocument() et met à jour TOC etc.
+
+                // Après le re-rendu, la page suivante (nextPageIdx) contient de nouveaux éléments.
+                // Il faut vérifier si cette page déborde à son tour.
+                console.log(`[Page ${idx}] Pagination effectuée. Lancement récursif pour la page ${nextPageIdx} pour vérifier son contenu.`);
+                paginateObjects(nextPageIdx, true); // Appel récursif pour la page qui a reçu les objets.
             }
-            updateAllChapterNumbers(); // Appel final pour tout recalculer et re-rendre
+        } else {
+             console.log(`[Page ${idx}] Aucune pagination nécessaire sur cette page.`);
+             // Si aucune pagination n'a eu lieu sur cette page ET que ce n'est pas un appel récursif,
+             // on pourrait vouloir vérifier la page suivante. Mais la logique de cascade est mieux gérée par l'appel récursif.
         }
-    }, 100); // Augmenter le délai pour s'assurer que le DOM est stable
+    }, 250); // Augmentation du délai pour plus de stabilité du DOM, surtout avec les calculs de hauteur.
 }
 
-// La fonction paginatePage est un alias ou une version précédente de paginateObjects.
+// La fonction paginatePage est un alias.
 function paginatePage(idx) {
-    paginateObjects(idx);
+    console.log(`paginatePage(${idx}) appelée, redirigée vers paginateObjects.`);
+    paginateObjects(idx, false); // false indique que ce n'est pas un appel récursif interne.
 }
