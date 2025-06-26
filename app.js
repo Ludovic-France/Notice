@@ -96,13 +96,23 @@ function initDocument() {
         ChapitreData.forEach(chapEntry => {
             let pageObjects = [];
             if (chapEntry.H1) {
-                pageObjects.push({ type: "h1", text: chapEntry.H1, originalText: chapEntry.H1, id: chapEntry.id });
+                pageObjects.push({
+                    type: "h1",
+                    text: chapEntry.H1,
+                    originalText: chapEntry.H1,
+                    id: chapEntry.id || generateUniqueId() // Assurer un ID
+                });
             }
             // Handle nested H2s if defined with a key like "H2_items"
             if (chapEntry.H2_items && Array.isArray(chapEntry.H2_items)) {
                 chapEntry.H2_items.forEach(h2Entry => {
                     if (h2Entry.H2) {
-                        pageObjects.push({ type: "h2", text: h2Entry.H2, originalText: h2Entry.H2, id: h2Entry.id });
+                        pageObjects.push({
+                            type: "h2",
+                            text: h2Entry.H2,
+                            originalText: h2Entry.H2,
+                            id: h2Entry.id || generateUniqueId() // Assurer un ID
+                        });
                     }
                 });
             }
