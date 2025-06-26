@@ -194,6 +194,8 @@ main#document {
     border: 1px solid #ccc;
     margin-bottom: 8px;
     outline: none;
+    overflow-y: auto; /* Ajout pour gérer le débordement interne de la zone de texte */
+    max-height: 50vh; /* Limite indicative pour éviter une expansion démesurée avant blur */
 }
 .selected {
     box-shadow: 0 0 0 3px #4078d6 !important;
@@ -283,10 +285,17 @@ aside#controls button:hover {
 }
 .drop-target {
     transition: background 0.2s;
-	height: 6px;
-	margin: 2px 0;
-	background: #eee;
+    height: 10px; /* Augmenter la hauteur */
+    padding: 5px 0; /* Ajouter du padding vertical pour augmenter la zone sensible */
+    margin: 4px 0; /* Ajuster les marges si nécessaire */
+    background: #e8e8e8; /* Légèrement plus visible */
     border-radius: 4px;
+    box-sizing: content-box; /* S'assurer que le padding s'ajoute à la hauteur */
+}
+/* Cibler spécifiquement la première drop-target dans .chapter-objects */
+.chapter-objects > .drop-target:first-child {
+    min-height: 20px; /* Rendre la première drop-target encore plus haute */
+    background-color: #ddeeff; /* Couleur distincte pour test */
 }
 .chapter-objects [draggable="true"] {
     cursor: grab;

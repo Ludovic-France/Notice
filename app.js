@@ -1399,8 +1399,10 @@ function exportCleanHTML() {
 
 // Nouvelle fonction paginateObjects
 function paginateObjects(idx, isRecursiveCall = false) {
-    if (idx < 2 || idx >= pages.length) { // Ne pas paginer la couverture, TOC ou index invalide
-        if (!isRecursiveCall) console.log(`paginateObjects: Page ${idx} non éligible pour pagination initiale (couverture, TOC ou hors limites).`);
+    // On exclut la page de garde (idx === 0) et les index hors limites.
+    // La page du Sommaire (idx === 1) sera maintenant traitée.
+    if (idx === 0 || idx >= pages.length) {
+        if (!isRecursiveCall) console.log(`paginateObjects: Page ${idx} non éligible pour pagination (couverture ou hors limites).`);
         return;
     }
 
@@ -1414,18 +1416,56 @@ function paginateObjects(idx, isRecursiveCall = false) {
         const currentPageData = pages[idx];
         const thisPageDiv = allPageDivs[idx];
 
-        if (!thisPageDiv || !currentPageData || currentPageData.type === 'cover' || currentPageData.type === 'toc') {
-            console.log(`paginateObjects: Page ${idx} (type ${currentPageData.type}) n'est pas un chapitre paginable.`);
+        // Déterminer si c'est une page de sommaire ou une page de chapitre standard
+        const isTocPage = (currentPageData.type === 'toc' || currentPageData.type === 'toc_continued');
+        let itemsToPaginate = []; // Les éléments réels à mesurer et potentiellement déplacer (DOM nodes)
+        let sourceDataArray = null; // Le tableau de données source (ex: page.objects) - pertinent pour les chapitres
+        let itemContainerDiv = null; // Le conteneur DOM des items (ex: .chapter-objects ou #table-of-contents)
+
+        if (!thisPageDiv || !currentPageData) {
+            console.warn(`[Page ${idx}] Données de page ou div de page manquantes.`);
+            return;
+        }
+
+        if (isTocPage) {
+            itemContainerDiv = thisPageDiv.querySelector('#table-of-contents');
+            if (!itemContainerDiv) {
+                // Si la page TOC est vide (par ex. une toc_continued fraîchement créée), elle n'aura pas encore de #table-of-contents.
+                // C'est normal, la pagination ne trouvera rien à faire.
+                console.log(`[Page TOC ${idx}] Conteneur #table-of-contents non trouvé (peut être normal si vide).`);
+                // On ne quitte pas, car il se peut qu'on y déplace des items plus tard.
+            } else {
+                 itemsToPaginate = Array.from(itemContainerDiv.children).filter(child => child.tagName === 'LI');
+            }
+            console.log(`[Page TOC ${idx}] Mode pagination pour Sommaire. ${itemsToPaginate.length} <li> trouvés.`);
+            // Pour le TOC, sourceDataArray n'est pas utilisé de la même manière (on déplace les noeuds LI directement)
+        } else if (currentPageData.type === 'chapter') {
+            itemContainerDiv = thisPageDiv.querySelector('.chapter-objects');
+            if (!itemContainerDiv) {
+                console.warn(`[Page Chapitre ${idx}] .chapter-objects manquant.`);
+                return;
+            }
+            // Pour les chapitres, itemsToPaginate sont les éléments rendus, pas les drop-targets
+            itemsToPaginate = Array.from(itemContainerDiv.children)
+                                         .filter(child => child.offsetParent !== null && !child.classList.contains('drop-target'));
+            sourceDataArray = currentPageData.objects; // Le tableau d'objets de la page
+            if (sourceDataArray && sourceDataArray.length !== itemsToPaginate.length) {
+                 console.warn(`[Page Chapitre ${idx}] Incohérence: ${sourceDataArray.length} objets de données vs ${itemsToPaginate.length} éléments rendus.`);
+            }
+            console.log(`[Page Chapitre ${idx}] Mode pagination pour Chapitre. ${itemsToPaginate.length} objets rendus trouvés.`);
+        } else {
+            console.log(`[Page ${idx}] Type de page "${currentPageData.type}" non géré pour la pagination.`);
             return;
         }
 
         const contentDiv = thisPageDiv.querySelector('.content');
-        const chapterObjsDiv = thisPageDiv.querySelector('.chapter-objects');
-
-        if (!contentDiv || !chapterObjsDiv) {
-            console.warn(`paginateObjects: .content ou .chapter-objects manquant pour la page ${idx}.`);
+        if (!contentDiv) { // contentDiv est nécessaire pour les calculs de hauteur
+            console.warn(`[Page ${idx}] div.content manquant.`);
             return;
         }
+        // chapterObjsDiv n'est pertinent que pour les pages 'chapter', itemContainerDiv est maintenant plus générique.
+        // const chapterObjsDiv = thisPageDiv.querySelector('.chapter-objects');
+
 
         const pageStyle = getComputedStyle(thisPageDiv);
         const contentStyle = getComputedStyle(contentDiv);
@@ -1464,25 +1504,38 @@ function paginateObjects(idx, isRecursiveCall = false) {
             const marginTop = parseFloat(elementStyle.marginTop) || 0;
             const marginBottom = parseFloat(elementStyle.marginBottom) || 0;
 
-            const gapProperty = getComputedStyle(chapterObjsDiv).gap;
-            const gap = (i > 0 && gapProperty !== 'normal') ? (parseFloat(gapProperty) || 0) : 0;
+            // Utiliser itemContainerDiv pour obtenir le gap, s'il existe et est pertinent
+            let gap = 0;
+            if (itemContainerDiv && i > 0) { // Gap pertinent seulement s'il y a un conteneur et pas le premier élément
+                const gapProperty = getComputedStyle(itemContainerDiv).gap;
+                if (gapProperty !== 'normal') { // 'normal' (valeur par défaut pour gap) n'est pas utilisable dans parseFloat
+                    gap = parseFloat(gapProperty) || 0;
+                }
+            }
             const totalElementHeightWithMarginsAndGap = elementHeight + marginTop + marginBottom + gap;
 
-            console.log(`  [Page ${idx}][Obj ${i}] height: ${elementHeight.toFixed(2)}, marginTop: ${marginTop.toFixed(2)}, marginBottom: ${marginBottom.toFixed(2)}, gap: ${gap.toFixed(2)}, total: ${totalElementHeightWithMarginsAndGap.toFixed(2)}. Accumulated: ${accumulatedHeight.toFixed(2)}`);
+            if (element.classList.contains('rte-area')) {
+                console.log(`  [Page ${idx}][RTE Obj ${i}] InnerHTML length: ${element.innerHTML.length}, OffsetH: ${element.offsetHeight.toFixed(2)}, TotalH+Margins+Gap: ${totalElementHeightWithMarginsAndGap.toFixed(2)}. Accumulated: ${accumulatedHeight.toFixed(2)}`);
+            } else {
+                console.log(`  [Page ${idx}][Obj ${i}] height: ${elementHeight.toFixed(2)}, marginTop: ${marginTop.toFixed(2)}, marginBottom: ${marginBottom.toFixed(2)}, gap: ${gap.toFixed(2)}, total: ${totalElementHeightWithMarginsAndGap.toFixed(2)}. Accumulated: ${accumulatedHeight.toFixed(2)}`);
+            }
 
             if (accumulatedHeight + totalElementHeightWithMarginsAndGap > availableHeightForChapterObjects) {
-                // Si c'est le premier élément et qu'il déborde, mais qu'il n'est pas seul, on le déplace.
-                if (i === 0 && currentPageData.objects.length > 1) {
-                    splitAtIndex = 0;
-                    console.log(`  [Page ${idx}] Premier élément (index 0) déborde et n'est pas seul. splitAtIndex = 0.`);
-                // Si ce n'est pas le premier élément et qu'il déborde.
-                } else if (i > 0) {
+                if (i === 0) { // C'est le premier élément (index 0) qui déborde
+                    if (currentPageData.objects.length > 1 || !isRecursiveCall) {
+                        // S'il y a d'autres objets OU si ce n'est PAS un appel récursif
+                        // (donc potentiellement un ajout direct par l'utilisateur sur une page vide),
+                        // on autorise le déplacement.
+                        splitAtIndex = 0;
+                        console.log(`  [Page ${idx}] Premier élément (index 0) déborde. Autorisé pour déplacement (length: ${currentPageData.objects.length}, isRecursive: ${isRecursiveCall}). splitAtIndex = 0.`);
+                    } else {
+                        // C'est un appel récursif ET c'est le seul objet sur la page : risque de boucle infinie.
+                        console.log(`  [Page ${idx}] Premier et unique élément (index 0) déborde DANS UN APPEL RÉCURSIF. Aucun déplacement pour éviter boucle.`);
+                        splitAtIndex = -1;
+                    }
+                } else { // Ce n'est pas le premier élément (i > 0) qui déborde
                     splitAtIndex = i;
                     console.log(`  [Page ${idx}] Élément ${i} déborde. splitAtIndex = ${i}.`);
-                // Si c'est le premier élément, qu'il est seul et qu'il déborde.
-                } else {
-                    console.log(`  [Page ${idx}] Premier et unique élément (index 0) déborde. Aucun déplacement possible pour cet élément.`);
-                    splitAtIndex = -1; // Aucun découpage ne sera fait pour cet élément trop grand.
                 }
                 break;
             }
@@ -1490,39 +1543,52 @@ function paginateObjects(idx, isRecursiveCall = false) {
         }
         console.log(`[Page ${idx}] Fin boucle. AccumulatedHeight: ${accumulatedHeight.toFixed(2)}, splitAtIndex: ${splitAtIndex}`);
 
-        if (splitAtIndex > -1 && splitAtIndex < currentPageData.objects.length) {
-            // Vérification supplémentaire: ne pas déplacer le seul objet d'une page s'il est trop grand
-            if (currentPageData.objects.length === 1 && splitAtIndex === 0) {
-                console.warn(`[Page ${idx}] Tentative de déplacement du seul objet de la page car il est trop grand. Annulation pour éviter boucle.`);
-            } else {
-                let objectsToMove = currentPageData.objects.slice(splitAtIndex);
-                currentPageData.objects = currentPageData.objects.slice(0, splitAtIndex);
+        // La condition pour vérifier si un split est nécessaire doit utiliser la longueur de itemsToPaginate
+        const itemCount = itemsToPaginate.length; // Nombre d'éléments réellement mesurés
 
-                let nextPageIdx = idx + 1;
-                let nextPageData = pages[nextPageIdx];
-
-                // Si la page suivante n'existe pas, ou si ce n'est pas une page de chapitre standard, on en crée une.
-                if (!nextPageData || nextPageData.type === 'cover' || nextPageData.type === 'toc' || nextPageData.type !== 'chapter') {
-                    console.log(`[Page ${idx}] Création d'une nouvelle page (type chapter) après ${idx} pour les objets débordants.`);
-                    const newPageTemplate = { type: 'chapter', objects: [] }; // Toujours créer des pages 'chapter' pour le contenu
-                    pages.splice(nextPageIdx, 0, newPageTemplate);
-                    orientation.splice(nextPageIdx, 0, orientation[idx]); // Hériter de l'orientation
-                    nextPageData = newPageTemplate;
+        if (splitAtIndex > -1 && splitAtIndex < itemCount) {
+            if (isTocPage) {
+                console.warn(`[Page TOC ${idx}] La pagination automatique du Sommaire n'est pas encore active. Split détecté à l'item ${splitAtIndex} sur ${itemCount} items.`);
+                // Pour l'instant, on ne fait rien pour le TOC pour ne pas casser les pages chapitres.
+            } else if (currentPageData.type === 'chapter') {
+                // Logique pour les pages 'chapter'
+                if (!sourceDataArray) { // Sécurité, ne devrait pas arriver si type === 'chapter'
+                    console.error(`[Page Chapitre ${idx}] sourceDataArray est null!`);
+                    return;
                 }
+                // Protection anti-boucle pour les pages chapitre
+                if (sourceDataArray.length === 1 && splitAtIndex === 0 && isRecursiveCall) {
+                    console.warn(`[Page Chapitre ${idx}] Tentative de déplacement du seul objet (appel récursif). Annulation pour éviter boucle.`);
+                } else if (sourceDataArray.length === 0 && itemsToPaginate.length > 0 && splitAtIndex === 0){
+                    // Cas où sourceDataArray est vide mais il y a des éléments dans le DOM (potentielle incohérence)
+                    // Et le premier élément DOM déborde. On ne fait rien pour éviter des erreurs.
+                     console.warn(`[Page Chapitre ${idx}] Incohérence: sourceDataArray vide mais itemsToPaginate non. SplitAtIndex 0. Annulation.`);
+                }
+                else {
+                    let objectsToMove = sourceDataArray.slice(splitAtIndex);
+                    pages[idx].objects = sourceDataArray.slice(0, splitAtIndex); // Mise à jour du modèle de données
 
-                nextPageData.objects = objectsToMove.concat(nextPageData.objects || []);
-                console.log(`[Page ${idx}] ${objectsToMove.length} objets déplacés vers la page ${nextPageIdx}.`);
+                    let nextPageIdx = idx + 1;
+                    let nextPageData = pages[nextPageIdx];
 
-                // Il est crucial de mettre à jour le document (DOM et numérotation)
-                updateAllChapterNumbers(); // Appelle renderDocument() et met à jour TOC etc.
+                    if (!nextPageData || nextPageData.type !== 'chapter') {
+                        console.log(`[Page Chapitre ${idx}] Création page (type chapter) après ${idx}.`);
+                        const newPageTemplate = { type: 'chapter', objects: [] };
+                        pages.splice(nextPageIdx, 0, newPageTemplate);
+                        orientation.splice(nextPageIdx, 0, orientation[idx]);
+                        nextPageData = newPageTemplate;
+                    }
 
-                // Après le re-rendu, la page suivante (nextPageIdx) contient de nouveaux éléments.
-                // Il faut vérifier si cette page déborde à son tour.
-                console.log(`[Page ${idx}] Pagination effectuée. Lancement récursif pour la page ${nextPageIdx} pour vérifier son contenu.`);
-                paginateObjects(nextPageIdx, true); // Appel récursif pour la page qui a reçu les objets.
+                    nextPageData.objects = objectsToMove.concat(nextPageData.objects || []);
+                    console.log(`[Page Chapitre ${idx}] ${objectsToMove.length} objets déplacés vers page ${nextPageIdx}.`);
+
+                    updateAllChapterNumbers();
+                    console.log(`[Page Chapitre ${idx}] Pagination OK. Appel récursif pour page ${nextPageIdx}.`);
+                    paginateObjects(nextPageIdx, true);
+                }
             }
         } else {
-             console.log(`[Page ${idx}] Aucune pagination nécessaire sur cette page.`);
+             console.log(`[Page ${idx}] Aucune pagination nécessaire (splitAtIndex: ${splitAtIndex}, itemCount: ${itemCount}).`);
              // Si aucune pagination n'a eu lieu sur cette page ET que ce n'est pas un appel récursif,
              // on pourrait vouloir vérifier la page suivante. Mais la logique de cascade est mieux gérée par l'appel récursif.
         }
