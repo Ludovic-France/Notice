@@ -761,17 +761,49 @@ function updateAllChapterNumbers() {
 
     // Toujours appeler renderDocument() pour refléter les changements de numérotation des chapitres
     // et la suppression potentielle des pages toc_continued.
-    renderDocument();
+    renderDocument(); // Rendu initial avec les numéros de chapitre et TOC nettoyée
 
-    // Maintenant que le DOM est à jour (sans anciennes pages toc_continued),
-    // on peut appeler paginateToc pour la TOC principale.
+    // Maintenant, paginer le TOC page par page
     if (pages.length > 1 && pages[1].type === 'toc') {
-        paginateToc(1);
+        let tocPaginationOccurred;
+        let currentPageIndexForToc = 1; // Commencer par la TOC principale
+        let safetyCounter = 0;
+        const maxTocPages = pages.length + 10; // Limite de sécurité dynamique
+
+        console.log(`[updateAllChapterNumbers] Démarrage de la boucle de pagination du TOC pour page ${currentPageIndexForToc}`);
+        do {
+            // On met un setTimeout ici pour permettre au DOM de se mettre à jour après le renderDocument de l'itération précédente.
+            // C'est un hack léger. Idéalement, paginateToc serait asynchrone avec des promesses.
+            // Mais pour l'instant, on espère que le thread JS a le temps de rafraîchir le DOM.
+            // Ce setTimeout n'est PAS idéal ici car la boucle do...while est synchrone.
+            // Il faudrait une structure asynchrone (async/await avec des promesses) pour bien gérer ça.
+
+            // **Correction de la pensée précédente :** La boucle doit être asynchrone si on veut des setTimeout entre les appels.
+            // Pour l'instant, on la garde synchrone, ce qui signifie que le renderDocument() DANS la boucle
+            // est crucial et le setTimeout dans paginateToc a été retiré.
+
+            tocPaginationOccurred = paginateToc(currentPageIndexForToc);
+
+            if (tocPaginationOccurred) {
+                console.log(`[updateAllChapterNumbers] Pagination du TOC effectuée pour page ${currentPageIndexForToc}, nouvelle page créée.`);
+                currentPageIndexForToc++;
+                // Si une page a été ajoutée, pages.length a changé. Il faut re-rendre.
+                renderDocument(); // Re-rendre pour que la nouvelle page soit dans le DOM pour la prochaine itération de paginateToc
+            } else {
+                console.log(`[updateAllChapterNumbers] Aucune pagination du TOC pour page ${currentPageIndexForToc}. Fin de la pagination TOC.`);
+            }
+
+            safetyCounter++;
+            if (safetyCounter > maxTocPages) {
+                console.error("[updateAllChapterNumbers] paginateToc loop safety break!");
+                break;
+            }
+        } while (tocPaginationOccurred && currentPageIndexForToc < pages.length);
     }
-    // Note: Si paginateToc ajoute des pages 'toc_continued', le rendu de ces nouvelles pages
-    // et la mise à jour de la pagination globale (Page X / Y) ne seront visibles
-    // qu'au prochain appel global à renderDocument() (par ex. par une autre action utilisateur).
-    // C'est le compromis pour éviter la boucle.
+
+    // Un renderDocument final pourrait être fait ici si tocPaginationOccurred était vrai à un moment,
+    // mais celui dans la boucle devrait suffire pour la dernière page.
+    console.log("[updateAllChapterNumbers] Terminé.");
 }
 
 function updateSelectionClass() {
@@ -942,11 +974,11 @@ function paginateToc(tocPageIndex) {
         return;
     }
 
-    setTimeout(() => {
+    // setTimeout(() => { // setTimeout externe retiré, la fonction appelante gère le timing/boucle
         const allPageDivs = document.querySelectorAll('#pages-container > .page');
         if (tocPageIndex >= allPageDivs.length) {
-            console.warn(`paginateToc: Index ${tocPageIndex} hors limites pour les divs de page rendues.`);
-            return;
+            console.warn(`[paginateToc ${tocPageIndex}] Index hors limites pour les divs de page rendues. DOM non à jour ?`);
+            return false; // Modification : retourner false
         }
         const tocPageElement = allPageDivs[tocPageIndex];
         const tocOlElement = tocPageElement.querySelector('#table-of-contents');
@@ -1025,19 +1057,18 @@ function paginateToc(tocPageIndex) {
             // Appel à updateAllChapterNumbers() supprimé pour casser la boucle.
             // Cela signifie que si plus d'une page "toc_continued" est nécessaire,
             // la pagination au-delà de la première ne fonctionnera pas sans un renderDocument intermédiaire.
-            // La prochaine action utilisateur qui déclenche renderDocument mettra à jour l'affichage.
+            // Appel à updateAllChapterNumbers() supprimé pour casser la boucle.
 
-            setTimeout(() => {
-                // On appelle toujours paginateToc pour la page suivante, en se basant sur les données mises à jour de `pages`.
-                // Le renderDocument() dans updateAllChapterNumbers (qui a appelé paginateToc(1))
-                // aura rendu la première page toc_continued si elle a été créée.
-                paginateToc(nextPageIdx);
-            }, 250);
+            // setTimeout(() => { // Récursion interne supprimée
+            //     paginateToc(nextPageIdx);
+            // }, 250);
+            return true; // Indiquer qu'une pagination a eu lieu
 
         } else {
             console.log(`[paginateToc Page ${tocPageIndex}] Aucune pagination nécessaire pour ce sommaire.`);
+            return false; // Aucune pagination
         }
-    }, 250);
+    // }, 250); // setTimeout externe retiré
 }
 
 /* ------- Gestion des Risques Sélectionnés ------- */
