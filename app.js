@@ -744,23 +744,34 @@ function updateAllChapterNumbers() {
             });
         }
     });
-    renderDocument();
-    // Après que tout le document est rendu, on peut paginer le sommaire si besoin.
-    if (pages.length > 1 && pages[1].type === 'toc') { // S'assurer que la page TOC existe
-        // Avant de paginer le TOC, s'assurer qu'il n'y a pas de pages toc_continued en trop
-        for (let i = pages.length - 1; i > 1; i--) { // Commencer après la TOC principale
+    // Laisser le renderDocument() qui était déjà là, ou s'assurer qu'il est appelé
+    // avant le nettoyage si les préfixes doivent être dans le DOM pour une raison.
+    // Pour plus de clarté, on fait le renderDocument principal APRÈS le nettoyage potentiel.
+
+    let tocPagesCleaned = false;
+    if (pages.length > 1 && pages[1].type === 'toc') {
+        for (let i = pages.length - 1; i > 1; i--) {
             if (pages[i].type === 'toc_continued') {
                 pages.splice(i, 1);
                 orientation.splice(i, 1);
+                tocPagesCleaned = true;
             }
         }
-        // Il faut potentiellement un renderDocument() ici si des pages ont été supprimées avant de paginer le TOC
-        // Mais paginateToc appelle updateAllChapterNumbers qui appelle renderDocument. Risque de boucle.
-        // Pour l'instant, on assume que la suppression n'impacte pas immédiatement le DOM au point de fausser paginateToc.
-        // Ou alors, on appelle renderDocument() si on a supprimé des pages, puis on appelle paginateToc dans un autre setTimeout.
-        // Simplifions : paginateToc est appelé, et s'il modifie la structure des pages, il rappelle updateAllChapterNumbers.
+    }
+
+    // Toujours appeler renderDocument() pour refléter les changements de numérotation des chapitres
+    // et la suppression potentielle des pages toc_continued.
+    renderDocument();
+
+    // Maintenant que le DOM est à jour (sans anciennes pages toc_continued),
+    // on peut appeler paginateToc pour la TOC principale.
+    if (pages.length > 1 && pages[1].type === 'toc') {
         paginateToc(1);
     }
+    // Note: Si paginateToc ajoute des pages 'toc_continued', le rendu de ces nouvelles pages
+    // et la mise à jour de la pagination globale (Page X / Y) ne seront visibles
+    // qu'au prochain appel global à renderDocument() (par ex. par une autre action utilisateur).
+    // C'est le compromis pour éviter la boucle.
 }
 
 function updateSelectionClass() {
@@ -1011,9 +1022,15 @@ function paginateToc(tocPageIndex) {
 
             console.log(`[paginateToc Page ${tocPageIndex}] ${nodesToMove.length} LI déplacés vers la future page ${nextPageIdx}.`);
 
-            updateAllChapterNumbers();
+            // Appel à updateAllChapterNumbers() supprimé pour casser la boucle.
+            // Cela signifie que si plus d'une page "toc_continued" est nécessaire,
+            // la pagination au-delà de la première ne fonctionnera pas sans un renderDocument intermédiaire.
+            // La prochaine action utilisateur qui déclenche renderDocument mettra à jour l'affichage.
 
             setTimeout(() => {
+                // On appelle toujours paginateToc pour la page suivante, en se basant sur les données mises à jour de `pages`.
+                // Le renderDocument() dans updateAllChapterNumbers (qui a appelé paginateToc(1))
+                // aura rendu la première page toc_continued si elle a été créée.
                 paginateToc(nextPageIdx);
             }, 250);
 
