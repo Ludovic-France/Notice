@@ -94,54 +94,64 @@ function initDocument() {
     // Pages par chapitre
     if (typeof ChapitreData !== "undefined") {
         ChapitreData.forEach(chapEntry => {
-            let pageObjects = [];
+            let currentChapterPageObjects = [];
+
             if (chapEntry.H1) {
-                pageObjects.push({
+                if (currentChapterPageObjects.length > 0) { // Devrait être vide, mais par sécurité
+                    pages.push({ type: 'chapter', objects: currentChapterPageObjects });
+                    orientation.push("portrait");
+                    currentChapterPageObjects = [];
+                }
+
+                currentChapterPageObjects.push({
                     type: "h1",
                     text: chapEntry.H1,
                     originalText: chapEntry.H1,
-                    id: chapEntry.id || generateUniqueId() // Assurer un ID
+                    id: chapEntry.id || generateUniqueId()
                 });
             }
-            // Handle nested H2s if defined with a key like "H2_items"
+
             if (chapEntry.H2_items && Array.isArray(chapEntry.H2_items)) {
-                chapEntry.H2_items.forEach(h2Entry => { // Boucle sur chaque item H2
+                chapEntry.H2_items.forEach(h2Entry => {
                     if (h2Entry.H2) {
-                        // Ajoute l'objet H2 à pageObjects
-                        pageObjects.push({
+                        // Si currentChapterPageObjects contient déjà quelque chose (H1 ou H2/H3 précédent),
+                        // ce H2 commence sur une nouvelle page.
+                        if (currentChapterPageObjects.length > 0) {
+                            pages.push({ type: 'chapter', objects: currentChapterPageObjects });
+                            orientation.push("portrait");
+                            currentChapterPageObjects = [];
+                        }
+
+                        currentChapterPageObjects.push({
                             type: "h2",
                             text: h2Entry.H2,
                             originalText: h2Entry.H2,
                             id: h2Entry.id || generateUniqueId()
                         });
 
-                        // Traiter les H3_items de CE h2Entry spécifique
                         if (h2Entry.H3_items && Array.isArray(h2Entry.H3_items)) {
-                            h2Entry.H3_items.forEach(h3Entry => { // Boucle sur chaque item H3 sous le H2 courant
+                            h2Entry.H3_items.forEach(h3Entry => {
                                 if (h3Entry.H3) {
-                                    // Ajoute l'objet H3 à pageObjects
-                                    pageObjects.push({
+                                    currentChapterPageObjects.push({
                                         type: "h3",
                                         text: h3Entry.H3,
                                         originalText: h3Entry.H3,
                                         id: h3Entry.id || generateUniqueId()
                                     });
-                                    // Pour les H4 enfants de H3, la logique serait imbriquée ici:
-                                    // if (h3Entry.H4_items && Array.isArray(h3Entry.H4_items)) { ... }
+                                    // Gérer H4 ici si nécessaire, en les ajoutant à currentChapterPageObjects
                                 }
                             });
                         }
                     }
                 });
             }
-            if (pageObjects.length > 0) {
-                pages.push({
-                    type: 'chapter',
-                    objects: pageObjects
-                });
+
+            // À la fin du traitement d'un chapEntry (qui peut contenir un H1 et/ou plusieurs H2),
+            // s'il reste des objets dans currentChapterPageObjects, ils forment la dernière page de ce bloc.
+            if (currentChapterPageObjects.length > 0) {
+                pages.push({ type: 'chapter', objects: currentChapterPageObjects });
                 orientation.push("portrait");
             }
-			//console.log(pageObjects);
         });
     }
     renderDocument();
@@ -295,22 +305,34 @@ function renderPage(page, idx) {
 		constructeurBlock.style.textAlign = "left";
 		constructeurBlock.innerHTML = "<b>Constructeur : APA <br>Adresse :</b> 292 Rue de l'Epinette, 76320 CAUDEBEC Lès ELBEUF <br>☎️ +33 2.32.96.26.60";
 		content.appendChild(constructeurBlock);
-    } else if (idx === 1) {
+    } else if (page.type === 'toc') { // TOC Principale (idx === 1 habituellement)
+        let tocMainTitle = document.createElement('h2');
+        tocMainTitle.innerText = "Sommaire";
+		tocMainTitle.style.padding = '0';
+		tocMainTitle.style.margin = '0';
+        content.appendChild(tocMainTitle);
+
         let tocOl = document.createElement("ol");
         tocOl.id = "table-of-contents";
-        tocOl.style.fontSize = "1.1em";
+        tocOl.style.fontSize = "1em";
         tocOl.style.margin   = "0 0 0 24px";
         tocOl.style.padding  = "0";
+
+        // Générer toutes les entrées du sommaire basées sur les titres des pages de chapitre
+        // Cette logique est similaire à ce qui était fait avant pour idx === 1
         let itemsAddedToTOC = 0;
-        for (let i = 2; i < pages.length; i++) {
+        for (let i = 2; i < pages.length; i++) { // Commencer à vérifier à partir de la page d'index 2
             const p = pages[i];
+            // Important : Ne pas inclure les pages 'toc_continued' elles-mêmes dans le sommaire.
+            if (p.type === 'toc_continued') continue;
+
             if (Array.isArray(p.objects)) {
                 p.objects.forEach(obj => {
                     if (/^h[1-4]$/.test(obj.type) && (obj.originalText || obj.text)) {
                         let li = document.createElement("li");
-                        const prefix = obj.calculatedPrefix || "";
+                        const prefix = obj.calculatedPrefix || ""; // Assurez-vous que c'est à jour
                         const textValue = obj.originalText || obj.text || "";
-                        const pageNumberOfTitle = i + 1;
+                        const pageNumberOfTitle = i + 1; // Le numéro de page affiché
                         const anchor = document.createElement('a');
                         anchor.href = `#live-title-${obj.id}`;
                         anchor.innerHTML = `<span class="toc-title">${prefix}${textValue}</span><span class="toc-page-num">${pageNumberOfTitle}</span>`;
@@ -324,10 +346,28 @@ function renderPage(page, idx) {
             }
         }
         content.appendChild(tocOl);
-        if (itemsAddedToTOC === 0) {
-            console.warn("TOC RENDER: No items were added to the TOC during renderPage(idx=1).");
+        if (itemsAddedToTOC === 0 && pages.length > 2) { // Avertir seulement s'il y a des pages de contenu
+            console.warn("TOC RENDER: Aucun titre (h1-h4) trouvé dans les pages de chapitre pour générer le sommaire.");
         }
-    } else {
+    } else if (page.type === 'toc_continued') {
+        let tocContinuedTitle = document.createElement('h2');
+        tocContinuedTitle.innerText = "Sommaire (suite)";
+        content.appendChild(tocContinuedTitle);
+
+        let tocOl = document.createElement("ol");
+        tocOl.id = "table-of-contents"; // Même ID pour le style
+        tocOl.style.fontSize = "1.1em";
+        tocOl.style.margin   = "0 0 0 24px"; // Conserver les styles
+        tocOl.style.padding  = "0";
+
+        if (Array.isArray(page.tocItemsToRender)) {
+            page.tocItemsToRender.forEach(liNode => {
+                tocOl.appendChild(liNode); // Ajoute les noeuds LI qui ont été clonés et stockés
+            });
+        }
+        content.appendChild(tocOl);
+    }
+    else { // Pages de chapitre (type 'chapter' ou 'custom')
         if (!Array.isArray(page.objects)) page.objects = [];
         let objs = document.createElement('div');
         objs.className = "chapter-objects";
@@ -350,6 +390,7 @@ function renderPage(page, idx) {
             if (!newObj) return;
             page.objects.unshift(newObj);
             renderDocument();
+            paginatePage(idx); // Vérifier la pagination après l'ajout
         });
         objs.appendChild(dropStart);
 
@@ -371,19 +412,111 @@ function renderPage(page, idx) {
                     } else {
                         obj.originalText = currentText;
                     }
-                    obj.text = obj.originalText;
+                    obj.text = obj.originalText; // Assurer que obj.text est aussi mis à jour
+                    paginatePage(idx); // Vérifier la pagination après modification du texte
                 });
             } else if (obj.type === "text") {
-                el = document.createElement('div');
-                el.contentEditable = "true";
-                el.className = "rte-area";
-                el.innerHTML = obj.html || "";
-                el.addEventListener('blur', function() { obj.html = el.innerHTML; });
+				el = document.createElement('div');
+				el.contentEditable = "true";
+				el.className = "rte-area"; // Votre classe CSS pour la zone de texte
+				el.innerHTML = obj.html || "";
+
+				// Fonction helper pour insérer une image dans la zone de texte
+				const insertImageIntoRTE = (targetDiv, imageSrc) => {
+					const img = document.createElement('img');
+					img.src = imageSrc;
+					// Style pour que l'image s'intègre bien avec le texte
+					img.style.maxWidth = '100%';
+					img.style.maxHeight = '300px'; // Hauteur max pour éviter de trop grands sauts de page
+					img.style.display = 'block'; // L'image sera sur sa propre ligne
+					img.style.margin = '10px 0'; // Un peu d'espace vertical
+					img.style.objectFit = "contain";
+
+					const selection = window.getSelection();
+					if (selection.rangeCount > 0 && selection.anchorNode && targetDiv.contains(selection.anchorNode)) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents();
+						range.insertNode(img);
+						// Place le curseur après l'image
+						const newRange = document.createRange();
+						newRange.setStartAfter(img);
+						newRange.collapse(true);
+						selection.removeAllRanges();
+						selection.addRange(newRange);
+					} else {
+						// Fallback: si pas de sélection, ajoute à la fin
+						targetDiv.appendChild(img);
+					}
+					
+					// La mise à jour du modèle de données se fera via l'événement 'blur'
+					paginatePage(idx);
+				};
+
+				// GESTIONNAIRE PASTE AMÉLIORÉ POUR LA ZONE DE TEXTE
+				el.addEventListener('paste', e => {
+					const items = (e.clipboardData || window.clipboardData).items;
+					for (let item of items) {
+						if (item.kind === 'file' && item.type.startsWith('image/')) {
+							e.preventDefault();
+							const file = item.getAsFile();
+							const reader = new FileReader();
+							reader.onload = () => {
+								insertImageIntoRTE(el, reader.result);
+							};
+							reader.readAsDataURL(file);
+							return; // Traitement terminé
+						}
+					}
+					// Pour le texte, on laisse le comportement par défaut
+				});
+				
+				// GESTIONNAIRES DROP ET DRAGOVER POUR LA ZONE DE TEXTE
+				el.addEventListener('dragover', e => {
+					e.preventDefault(); // Nécessaire pour autoriser le drop
+					el.style.outline = "2px dashed #4078d6"; // Retour visuel
+				});
+				
+				el.addEventListener('dragleave', () => {
+					el.style.outline = "none";
+				});
+
+				el.addEventListener('drop', e => {
+					e.preventDefault();
+					el.style.outline = "none";
+					
+					const dataType = e.dataTransfer.getData("type");
+
+					if (dataType === "icon") {
+						const iconIndex = parseInt(e.dataTransfer.getData("icon"), 10);
+						if (typeof IconData !== "undefined" && IconData[iconIndex]) {
+							insertImageIntoRTE(el, IconData[iconIndex].url);
+						}
+					} else if (e.dataTransfer.files.length > 0) {
+						const file = e.dataTransfer.files[0];
+						if (file.type.startsWith("image/")) {
+							const reader = new FileReader();
+							reader.onload = () => {
+								insertImageIntoRTE(el, reader.result);
+							};
+							reader.readAsDataURL(file);
+						}
+					} else {
+						const text = e.dataTransfer.getData('text/plain');
+						if (text) {
+							document.execCommand('insertText', false, text);
+						}
+					}
+				});
+
+				el.addEventListener('blur', function() {
+					obj.html = el.innerHTML;
+					paginatePage(idx); // Vérifier la pagination après modification du texte
+				});
             } else if (obj.type === "table") {
 				if (obj.headerShaded === undefined) obj.headerShaded = false;
 				el = document.createElement('div');
 				el.className = "table-container";
-				let containerWidth = orientation[selectedPage] === "portrait" ? 710 : 1038;
+				let containerWidth = orientation[idx] === "portrait" ? 710 : 1038;
 				let table = document.createElement('table');
 				table.className = "page-table";
 				table.style.width = containerWidth + "px";
@@ -396,15 +529,15 @@ function renderPage(page, idx) {
 					obj.colWidths = Array(nbCols).fill(defaultPx);
 				} else {
 					let total = obj.colWidths.reduce((a, b) => a + parseFloat(b || 0), 0);
-                    if (total === 0 && nbCols > 0) { // Handle case where all widths are 0 or invalid
-                        let defaultPx = containerWidth / nbCols;
-					    obj.colWidths = Array(nbCols).fill(defaultPx);
-                        total = containerWidth;
-                    }
-                    if (total > 0) { // Ensure total is not zero before scaling
-					    let scale = containerWidth / total;
-					    obj.colWidths = obj.colWidths.map(w => parseFloat(w || 0) * scale);
-                    }
+					if (total === 0 && nbCols > 0) {
+						let defaultPx = containerWidth / nbCols;
+						obj.colWidths = Array(nbCols).fill(defaultPx);
+						total = containerWidth;
+					}
+					if (total > 0) {
+						let scale = containerWidth / total;
+						obj.colWidths = obj.colWidths.map(w => parseFloat(w || 0) * scale);
+					}
 				}
 				let colgroup = document.createElement('colgroup');
 				let accumulated = 0;
@@ -419,6 +552,38 @@ function renderPage(page, idx) {
 				}
 				table.appendChild(colgroup);
 				let tbody = document.createElement('tbody');
+
+				// NOUVELLE FONCTION HELPER pour insérer une image sans écraser le texte
+				const insertImageIntoCell = (targetCell, imageSrc) => {
+					const img = document.createElement('img');
+					img.src = imageSrc;
+					img.style.maxWidth = "100%";
+					img.style.maxHeight = "800px"; // Limite la hauteur pour ne pas trop déformer la cellule
+					img.style.objectFit = "contain";
+					img.style.verticalAlign = "middle"; // Pour un meilleur alignement avec le texte
+
+					const selection = window.getSelection();
+					// Vérifie si la sélection est bien dans la cellule cible
+					if (selection.rangeCount > 0 && selection.anchorNode && targetCell.contains(selection.anchorNode)) {
+						const range = selection.getRangeAt(0);
+						range.deleteContents(); // Supprime le texte sélectionné (si l'utilisateur veut remplacer)
+						range.insertNode(img);
+						// Place le curseur après l'image pour continuer à écrire
+						range.setStartAfter(img);
+						range.collapse(true);
+						selection.removeAllRanges();
+						selection.addRange(range);
+					} else {
+						// Fallback : si la cellule n'a pas le focus, on ajoute l'image à la fin
+						targetCell.appendChild(img);
+					}
+					
+					// Mettre à jour le modèle de données immédiatement est complexe
+					// car on a maintenant du HTML mixte. Le 'blur' event s'en chargera.
+					paginatePage(idx);
+				};
+
+
 				obj.rows.forEach((row, i) => {
 					let tr = document.createElement('tr');
 					if (i === 0 && obj.headerShaded) {
@@ -441,99 +606,77 @@ function renderPage(page, idx) {
 							sel.removeAllRanges();
 							sel.addRange(range);
 						});
+						
+						// On utilise innerHTML pour insérer le contenu qui peut être du HTML (texte + images)
 						if (typeof cellData === "object" && cellData.image) {
-							let img = document.createElement('img');
-							img.src = cellData.image;
-							img.style.width = "100%";
-							img.style.height = "100%";
-							img.style.objectFit = "contain";
-							td.appendChild(img);
+							 td.innerHTML = `<img src="${cellData.image}" style="max-width:100%;  object-fit:contain; vertical-align:middle;">`;
 						} else {
-							if (typeof cellData === "object" && cellData.text) {
-								td.innerHTML = cellData.text;
-							} else if (typeof cellData === "string") {
-								td.innerHTML = cellData;
-							} else if (!(typeof cellData === "object" && cellData.image)) {
-								td.innerHTML = cellData || "";
-							}
+							 td.innerHTML = (typeof cellData === "object" ? cellData.text : cellData) || "";
 						}
+
 						let colspan = (typeof cellData === "object" && cellData.colspan) ? cellData.colspan : 1;
 						let align = (typeof cellData === "object" && cellData.align) ? cellData.align : "left";
 						td.colSpan = colspan;
 						td.style.textAlign = align;
+						
+						// L'événement BLUR sauvegarde TOUT le contenu HTML de la cellule
 						td.addEventListener('blur', () => {
+							// On sauvegarde toujours le contenu en tant que texte/html
 							if (typeof cellData === "object" && cellData !== null) {
-								if (!cellData.image) {
-									cellData.text = td.innerHTML;
-								}
+								cellData.text = td.innerHTML;
+								delete cellData.image; // On supprime l'ancienne propriété "image" pour éviter les conflits
 							} else {
 								obj.rows[i][j] = td.innerHTML;
 							}
+							paginatePage(idx);
 						});
+
+						// GESTIONNAIRE PASTE MODIFIÉ
 						td.addEventListener('paste', e => {
-							e.preventDefault();
-							for (let it of e.clipboardData.items) {
-								if (it.kind === "file" && it.type.startsWith("image/")) {
-									let file = it.getAsFile();
-									let reader = new FileReader();
+							const items = (e.clipboardData || window.clipboardData).items;
+							for (let item of items) {
+								if (item.kind === 'file' && item.type.startsWith('image/')) {
+									e.preventDefault();
+									const file = item.getAsFile();
+									const reader = new FileReader();
 									reader.onload = () => {
-										td.innerHTML = "";
-										let img = document.createElement('img');
-										img.src = reader.result;
-										img.style.width = "100%";
-										img.style.height = "100%";
-										img.style.objectFit = "contain";
-										td.appendChild(img);
-										if (typeof cellData === "object") cellData.image = reader.result;
-										else obj.rows[i][j] = { image: reader.result };
+										insertImageIntoCell(td, reader.result);
 									};
 									reader.readAsDataURL(file);
-									break;
+									return; // On a traité l'image, on arrête
 								}
 							}
+							// Si ce n'est pas une image, on laisse le comportement par défaut (collage de texte)
 						});
+
+						// GESTIONNAIRE DROP MODIFIÉ
 						td.addEventListener('dragover', e => e.preventDefault());
 						td.addEventListener('drop', e => {
 							e.preventDefault();
-							if (e.dataTransfer.files.length) {
-								let file = e.dataTransfer.files[0];
+							const dataType = e.dataTransfer.getData("type");
+
+							if (dataType === "icon") {
+								const iconIndex = parseInt(e.dataTransfer.getData("icon"), 10);
+								if (typeof IconData !== "undefined" && IconData[iconIndex]) {
+									insertImageIntoCell(td, IconData[iconIndex].url);
+								}
+							} else if (e.dataTransfer.files.length > 0) {
+								const file = e.dataTransfer.files[0];
 								if (file.type.startsWith("image/")) {
-									let reader = new FileReader();
+									const reader = new FileReader();
 									reader.onload = () => {
-										td.innerHTML = "";
-										let img = document.createElement('img');
-										img.src = reader.result;
-										img.style.width = "100%";
-										img.style.height = "100%";
-										img.style.objectFit = "contain";
-										td.appendChild(img);
-										if (typeof cellData === "object") cellData.image = reader.result;
-										else obj.rows[i][j] = { image: reader.result };
+										insertImageIntoCell(td, reader.result);
 									};
 									reader.readAsDataURL(file);
 								}
 							} else {
-								let url = e.dataTransfer.getData('text/uri-list')
-									|| e.dataTransfer.getData('text/plain');
-								if (url.startsWith("http")) {
-									fetch(url).then(r => r.blob()).then(blob => {
-										let reader = new FileReader();
-										reader.onload = () => {
-											td.innerHTML = "";
-											let img = document.createElement('img');
-											img.src = reader.result;
-											img.style.width = "100%";
-											img.style.height = "100%";
-											img.style.objectFit = "contain";
-											td.appendChild(img);
-											if (typeof cellData === "object") cellData.image = reader.result;
-											else obj.rows[i][j] = { image: reader.result };
-										};
-										reader.readAsDataURL(blob);
-									});
+								const text = e.dataTransfer.getData('text/plain');
+								if (text) {
+									document.execCommand('insertText', false, text);
 								}
 							}
 						});
+
 						td.addEventListener('contextmenu', e => {
 							e.preventDefault();
 							showTableMenu(e, obj, i, j);
@@ -630,23 +773,35 @@ function renderPage(page, idx) {
                     if (newObj) {
                         page.objects.splice(oid + 1, 0, newObj);
                         renderDocument();
+                        paginatePage(idx); // Vérifier la pagination après l'ajout
                     }
                 } else if (moveOidStr !== "" && movePageStr !== "") {
                     const srcPageIdx = parseInt(movePageStr);
                     const srcOid = parseInt(moveOidStr);
+                    let refreshNeeded = false;
                     if (srcPageIdx === idx) {
                         if (srcOid !== oid && srcOid !== oid + 1) {
                             const [objMoved] = page.objects.splice(srcOid, 1);
                             let destOid = (srcOid < oid) ? oid : oid + 1;
                             page.objects.splice(destOid, 0, objMoved);
-                            renderDocument();
+                            refreshNeeded = true;
                         }
                     } else {
                         const srcPage = pages[srcPageIdx];
                         if (srcPage && Array.isArray(srcPage.objects) && srcOid < srcPage.objects.length) {
                             const [objMoved] = srcPage.objects.splice(srcOid, 1);
                             page.objects.splice(oid + 1, 0, objMoved);
-                            renderDocument();
+                            refreshNeeded = true;
+                        }
+                    }
+                    if (refreshNeeded) {
+                        renderDocument();
+                        // Paginer la page source et la page de destination
+                        paginatePage(srcPageIdx);
+                        if (srcPageIdx !== idx) {
+                            paginatePage(idx);
+                        } else { // Si source et destination sont identiques, un seul appel suffit
+                           // paginatePage(idx) est déjà implicite par srcPageIdx === idx
                         }
                     }
                 }
@@ -687,7 +842,66 @@ function updateAllChapterNumbers() {
             });
         }
     });
-    renderDocument();
+    // Laisser le renderDocument() qui était déjà là, ou s'assurer qu'il est appelé
+    // avant le nettoyage si les préfixes doivent être dans le DOM pour une raison.
+    // Pour plus de clarté, on fait le renderDocument principal APRÈS le nettoyage potentiel.
+
+    let tocPagesCleaned = false;
+    if (pages.length > 1 && pages[1].type === 'toc') {
+        for (let i = pages.length - 1; i > 1; i--) {
+            if (pages[i].type === 'toc_continued') {
+                pages.splice(i, 1);
+                orientation.splice(i, 1);
+                tocPagesCleaned = true;
+            }
+        }
+    }
+
+    // Toujours appeler renderDocument() pour refléter les changements de numérotation des chapitres
+    // et la suppression potentielle des pages toc_continued.
+    renderDocument(); // Rendu initial avec les numéros de chapitre et TOC nettoyée
+
+    // Maintenant, paginer le TOC page par page
+    if (pages.length > 1 && pages[1].type === 'toc') {
+        let tocPaginationOccurred;
+        let currentPageIndexForToc = 1; // Commencer par la TOC principale
+        let safetyCounter = 0;
+        const maxTocPages = pages.length + 10; // Limite de sécurité dynamique
+
+        console.log(`[updateAllChapterNumbers] Démarrage de la boucle de pagination du TOC pour page ${currentPageIndexForToc}`);
+        do {
+            // On met un setTimeout ici pour permettre au DOM de se mettre à jour après le renderDocument de l'itération précédente.
+            // C'est un hack léger. Idéalement, paginateToc serait asynchrone avec des promesses.
+            // Mais pour l'instant, on espère que le thread JS a le temps de rafraîchir le DOM.
+            // Ce setTimeout n'est PAS idéal ici car la boucle do...while est synchrone.
+            // Il faudrait une structure asynchrone (async/await avec des promesses) pour bien gérer ça.
+
+            // **Correction de la pensée précédente :** La boucle doit être asynchrone si on veut des setTimeout entre les appels.
+            // Pour l'instant, on la garde synchrone, ce qui signifie que le renderDocument() DANS la boucle
+            // est crucial et le setTimeout dans paginateToc a été retiré.
+
+            tocPaginationOccurred = paginateToc(currentPageIndexForToc);
+
+            if (tocPaginationOccurred) {
+                console.log(`[updateAllChapterNumbers] Pagination du TOC effectuée pour page ${currentPageIndexForToc}, nouvelle page créée.`);
+                currentPageIndexForToc++;
+                // Si une page a été ajoutée, pages.length a changé. Il faut re-rendre.
+                renderDocument(); // Re-rendre pour que la nouvelle page soit dans le DOM pour la prochaine itération de paginateToc
+            } else {
+                console.log(`[updateAllChapterNumbers] Aucune pagination du TOC pour page ${currentPageIndexForToc}. Fin de la pagination TOC.`);
+            }
+
+            safetyCounter++;
+            if (safetyCounter > maxTocPages) {
+                console.error("[updateAllChapterNumbers] paginateToc loop safety break!");
+                break;
+            }
+        } while (tocPaginationOccurred && currentPageIndexForToc < pages.length);
+    }
+
+    // Un renderDocument final pourrait être fait ici si tocPaginationOccurred était vrai à un moment,
+    // mais celui dans la boucle devrait suffire pour la dernière page.
+    console.log("[updateAllChapterNumbers] Terminé.");
 }
 
 function updateSelectionClass() {
@@ -721,6 +935,7 @@ function deleteSelected() {
             page.objects.splice(objIdx, 1);
             selectedElement = null;
             renderDocument();
+            paginatePage(pageIdx); // Vérifier la pagination après suppression
         }
     }
 }
@@ -755,7 +970,7 @@ function addPage() {
     updateSelectionClass();
 }
 
-function deletePage() {
+/*function deletePage() {
     if (selectedPage === 0 || selectedPage === 1) {
         alert("Impossible de supprimer la page de garde ou le sommaire !");
         return;
@@ -766,6 +981,53 @@ function deletePage() {
     if (selectedPage >= pages.length) selectedPage = pages.length - 1;
     selectedElement = null;
     renderDocument();
+    if (selectedPage >=2) paginatePage(selectedPage); // Vérifier la pagination de la page courante
+}*/
+
+function deletePage() {
+    // Premières vérifications pour les pages non supprimables
+    if (selectedPage === 0 || selectedPage === 1) {
+        alert("Impossible de supprimer la page de garde ou le sommaire !");
+        return;
+    }
+    if (pages.length <= 2) {
+        // Optionnel : avertir l'utilisateur qu'il ne peut pas supprimer les dernières pages de base
+        alert("Le document doit contenir au moins la page de garde et le sommaire.");
+        return;
+    }
+
+    // --- INTÉGRATION DE LA BOÎTE DE DIALOGUE ---
+    // On affiche la boîte de dialogue avec un message clair.
+    // La variable 'userConfirmed' sera 'true' si OK est cliqué, 'false' sinon.
+    const userConfirmed = window.confirm("Êtes-vous sûr de vouloir supprimer la page " + (selectedPage + 1) + " ?\nCette action est irréversible.");
+
+    // On exécute la suppression UNIQUEMENT si l'utilisateur a confirmé
+    if (userConfirmed) {
+        // Le reste de votre code original est placé ici
+        pages.splice(selectedPage, 1);
+        orientation.splice(selectedPage, 1);
+
+        // Ajuster l'index de la page sélectionnée après la suppression
+        if (selectedPage >= pages.length) {
+            selectedPage = pages.length - 1;
+        }
+
+        selectedElement = null; // Désélectionner tout élément
+        renderDocument();
+        updateAllChapterNumbers(); // Il est préférable de mettre à jour la numérotation après une suppression
+
+        // Si la nouvelle page sélectionnée est une page de contenu, on vérifie sa pagination
+        if (selectedPage >= 2) {
+            paginatePage(selectedPage);
+        }
+        
+        console.log("Page " + (selectedPage + 1) + " a été supprimée.");
+
+    } else {
+        // L'utilisateur a cliqué sur "Annuler"
+        console.log("Suppression de la page annulée par l'utilisateur.");
+        // Aucune action n'est nécessaire
+    }
 }
 
 /* ------- Changement d’orientation -------- */
@@ -777,6 +1039,7 @@ function toggleOrientation(idx = null) {
     }
     orientation[idx] = (orientation[idx] === "portrait" ? "landscape" : "portrait");
     renderDocument();
+    paginatePage(idx); // Vérifier la pagination après changement d'orientation
 }
 
 /* ------- Rafraîchir (recalcule sommaire) ------- */
@@ -819,7 +1082,8 @@ function openJSONFile(input) {
             });
             selectedPage = 0;
             selectedElement = null;
-            updateAllChapterNumbers();
+            updateAllChapterNumbers(); // Appelle renderDocument()
+            paginateAllPages(); // Nouvelle fonction pour vérifier toutes les pages après chargement
         } catch (e) {
             console.error("Error parsing JSON file:", e);
             alert("Erreur lors de l'ouverture du fichier JSON.");
@@ -827,6 +1091,128 @@ function openJSONFile(input) {
     };
     reader.readAsText(file);
     input.value = "";
+}
+
+// Nouvelle fonction pour paginer toutes les pages de chapitre
+function paginateAllPages() {
+    console.log("paginateAllPages: Démarrage de la vérification de pagination pour toutes les pages chapitre.");
+    // setTimeout pour s'assurer que renderDocument de updateAllChapterNumbers est terminé et le DOM est stable
+    setTimeout(() => {
+        pages.forEach((page, idx) => {
+            if (page.type === 'chapter' && idx >= 2) { // On ne pagine que les pages de chapitre
+                console.log(`paginateAllPages: Vérification de la page ${idx}`);
+                paginateObjects(idx, false); // Appel direct à paginateObjects
+                                             // false car ce n'est pas un appel récursif interne de paginateObjects lui-même
+            }
+        });
+        console.log("paginateAllPages: Vérification terminée.");
+    }, 500); // Un délai un peu plus long pour s'assurer que tout est bien rendu après openJSONFile
+}
+
+function paginateToc(tocPageIndex) {
+    if (tocPageIndex === 0 || tocPageIndex >= pages.length) return;
+
+    const tocPageData = pages[tocPageIndex];
+    if (tocPageData.type !== 'toc' && tocPageData.type !== 'toc_continued') {
+        console.log(`paginateToc: Page ${tocPageIndex} n'est pas une page de sommaire.`);
+        return;
+    }
+
+    // setTimeout(() => { // setTimeout externe retiré, la fonction appelante gère le timing/boucle
+        const allPageDivs = document.querySelectorAll('#pages-container > .page');
+        if (tocPageIndex >= allPageDivs.length) {
+            console.warn(`[paginateToc ${tocPageIndex}] Index hors limites pour les divs de page rendues. DOM non à jour ?`);
+            return false; // Modification : retourner false
+        }
+        const tocPageElement = allPageDivs[tocPageIndex];
+        const tocOlElement = tocPageElement.querySelector('#table-of-contents');
+
+        if (!tocOlElement || tocOlElement.children.length === 0) {
+            console.log(`paginateToc: Pas d'items de sommaire à paginer sur la page ${tocPageIndex}.`);
+            return;
+        }
+
+        const contentDiv = tocPageElement.querySelector('.content');
+        const headerDiv = tocPageElement.querySelector('.header');
+        const paginationDiv = tocPageElement.querySelector('.pagination');
+
+        if (!contentDiv || !headerDiv || !paginationDiv) {
+            console.warn(`paginateToc: Structure de page incomplète pour la page ${tocPageIndex}.`);
+            return;
+        }
+
+        const pageStyle = getComputedStyle(tocPageElement);
+        const contentStyle = getComputedStyle(contentDiv);
+
+        const pageHeight = tocPageElement.offsetHeight;
+        const headerHeight = headerDiv.offsetHeight;
+        const paginationHeight = paginationDiv.offsetHeight;
+        const contentPaddingTop = parseFloat(contentStyle.paddingTop) || 0;
+        const contentPaddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
+
+        const tocTitleElement = contentDiv.querySelector('h2');
+        const tocTitleHeight = tocTitleElement ? tocTitleElement.offsetHeight + (parseFloat(getComputedStyle(tocTitleElement).marginBottom) || 0) : 0;
+
+        const availableHeightForOl = pageHeight - headerHeight - contentPaddingTop - contentPaddingBottom - paginationHeight - tocTitleHeight - 20;
+
+        console.log(`[paginateToc Page ${tocPageIndex}] AvailableHeight for OL: ${availableHeightForOl.toFixed(2)}`);
+
+        let accumulatedHeight = 0;
+        let splitAtLiIndex = -1;
+        const liItems = Array.from(tocOlElement.children).filter(child => child.tagName === 'LI');
+
+        for (let i = 0; i < liItems.length; i++) {
+            const li = liItems[i];
+            const liStyle = getComputedStyle(li);
+            const liHeight = li.offsetHeight;
+            const liMarginTop = parseFloat(liStyle.marginTop) || 0;
+            const liMarginBottom = parseFloat(liStyle.marginBottom) || 0;
+            const totalLiHeight = liHeight + liMarginTop + liMarginBottom;
+
+            if (accumulatedHeight + totalLiHeight > availableHeightForOl) {
+                if (i === 0 && liItems.length > 1) {
+                    splitAtLiIndex = 0;
+                } else if (i > 0) {
+                    splitAtLiIndex = i;
+                } else {
+                    splitAtLiIndex = -1;
+                }
+                break;
+            }
+            accumulatedHeight += totalLiHeight;
+        }
+
+        console.log(`[paginateToc Page ${tocPageIndex}] AccumulatedHeight: ${accumulatedHeight.toFixed(2)}, SplitAt LI Index: ${splitAtLiIndex}`);
+
+        if (splitAtLiIndex > -1) {
+            const nodesToMove = liItems.slice(splitAtLiIndex);
+
+            let nextPageIdx = tocPageIndex + 1;
+            const newPageTocContinued = { type: 'toc_continued', tocItemsToRender: [] };
+            pages.splice(nextPageIdx, 0, newPageTocContinued);
+            orientation.splice(nextPageIdx, 0, orientation[tocPageIndex]);
+
+            newPageTocContinued.tocItemsToRender = nodesToMove.map(node => node.cloneNode(true));
+
+            nodesToMove.forEach(node => tocOlElement.removeChild(node));
+
+            console.log(`[paginateToc Page ${tocPageIndex}] ${nodesToMove.length} LI déplacés vers la future page ${nextPageIdx}.`);
+
+            // Appel à updateAllChapterNumbers() supprimé pour casser la boucle.
+            // Cela signifie que si plus d'une page "toc_continued" est nécessaire,
+            // la pagination au-delà de la première ne fonctionnera pas sans un renderDocument intermédiaire.
+            // Appel à updateAllChapterNumbers() supprimé pour casser la boucle.
+
+            // setTimeout(() => { // Récursion interne supprimée
+            //     paginateToc(nextPageIdx);
+            // }, 250);
+            return true; // Indiquer qu'une pagination a eu lieu
+
+        } else {
+            console.log(`[paginateToc Page ${tocPageIndex}] Aucune pagination nécessaire pour ce sommaire.`);
+            return false; // Aucune pagination
+        }
+    // }, 250); // setTimeout externe retiré
 }
 
 /* ------- Gestion des Risques Sélectionnés ------- */
@@ -1358,75 +1744,216 @@ function exportCleanHTML() {
     URL.revokeObjectURL(a.href);
 }
 
-function paginateObjects(idx) {
-    if (idx < 2) return;
+// Nouvelle fonction paginateObjects
+function paginateObjects(idx, isRecursiveCall = false) {
+    // On exclut la page de garde (idx === 0) et les index hors limites.
+    // La page du Sommaire (idx === 1) sera maintenant traitée.
+    if (idx === 0 || idx >= pages.length) {
+        if (!isRecursiveCall) console.log(`paginateObjects: Page ${idx} non éligible pour pagination (couverture ou hors limites).`);
+        return;
+    }
+
     setTimeout(() => {
-        const pageDivs = document.querySelectorAll('.page');
-        let currentPageIdx = idx;
-        let hasPaginated = false;
-        while (currentPageIdx < pages.length) {
-            const currentPage = pages[currentPageIdx];
-            const thisPageDiv = pageDivs[currentPageIdx];
-            if (!thisPageDiv) break;
-            const chapterObjs = thisPageDiv.querySelector('.chapter-objects');
-            if (!chapterObjs) break;
-            const pxLimite = 25 * 37.8;
-            let cumulated = 0;
-            let splitAt = -1;
-            const children = Array.from(chapterObjs.children);
-            for (let i = 0; i < children.length; i++) {
-                if (children[i].classList.contains('drop-target')) continue; // Ignorer les drop-targets dans le calcul de hauteur
-                let h = children[i].offsetHeight;
-                if (cumulated + h > pxLimite) {
-                    // Trouver l'index de l'objet correspondant dans currentPage.objects
-                    // Les enfants de chapterObjs sont [drop, obj, drop, obj, ...]
-                    // L'objet réel est à (i-1)/2 si i est l'index de l'élément visuel (el)
-                    // Ou plutôt, on compte les éléments réels
-                    let realObjIndex = 0;
-                    let currentChildIndex = 0;
-                    for(let k=0; k < children.length; k++){
-                        if(!children[k].classList.contains('drop-target')){
-                            if(currentChildIndex === i) break;
-                            realObjIndex++;
-                        }
-                        currentChildIndex++;
-                    }
-                    splitAt = realObjIndex;
-                    break;
-                }
-                if(!children[i].classList.contains('drop-target')) cumulated += h;
-            }
-            if (splitAt > -1 && splitAt < currentPage.objects.length) { // S'assurer que splitAt est valide
-                let overflowObjects = currentPage.objects.slice(splitAt);
-                currentPage.objects = currentPage.objects.slice(0, splitAt);
-                let nextPage = pages[currentPageIdx + 1];
-                if (!nextPage || nextPage.type !== currentPage.type) { //TODO: vérifier si le type de page doit être identique
-                    nextPage = { type: 'chapter', objects: [] }; // Type par défaut pour une nouvelle page de contenu
-                    pages.splice(currentPageIdx + 1, 0, nextPage);
-                    orientation.splice(currentPageIdx + 1, 0, orientation[currentPageIdx]);
-                }
-                nextPage.objects = overflowObjects.concat(nextPage.objects);
-                hasPaginated = true;
-                // Il faut re-rendre pour que les mesures de la page suivante soient correctes
-                renderDocument(); // Potentiellement coûteux, mais nécessaire pour la précision
-                currentPageIdx++;
+        const allPageDivs = document.querySelectorAll('#pages-container > .page');
+        if (idx >= allPageDivs.length) {
+            console.warn(`paginateObjects: Index ${idx} hors limites pour les divs de page rendues (longueur ${allPageDivs.length}). Probablement besoin d'un renderDocument() avant cet appel.`);
+            return;
+        }
+
+        const currentPageData = pages[idx];
+        const thisPageDiv = allPageDivs[idx];
+
+        // Déterminer si c'est une page de sommaire ou une page de chapitre standard
+        const isTocPage = (currentPageData.type === 'toc' || currentPageData.type === 'toc_continued');
+        let itemsToPaginate = []; // Les éléments réels à mesurer et potentiellement déplacer (DOM nodes)
+        let sourceDataArray = null; // Le tableau de données source (ex: page.objects) - pertinent pour les chapitres
+        let itemContainerDiv = null; // Le conteneur DOM des items (ex: .chapter-objects ou #table-of-contents)
+
+        if (!thisPageDiv || !currentPageData) {
+            console.warn(`[Page ${idx}] Données de page ou div de page manquantes.`);
+            return;
+        }
+
+        if (isTocPage) {
+            itemContainerDiv = thisPageDiv.querySelector('#table-of-contents');
+            if (!itemContainerDiv) {
+                // Si la page TOC est vide (par ex. une toc_continued fraîchement créée), elle n'aura pas encore de #table-of-contents.
+                // C'est normal, la pagination ne trouvera rien à faire.
+                console.log(`[Page TOC ${idx}] Conteneur #table-of-contents non trouvé (peut être normal si vide).`);
+                // On ne quitte pas, car il se peut qu'on y déplace des items plus tard.
             } else {
+                 itemsToPaginate = Array.from(itemContainerDiv.children).filter(child => child.tagName === 'LI');
+            }
+            console.log(`[Page TOC ${idx}] Mode pagination pour Sommaire. ${itemsToPaginate.length} <li> trouvés.`);
+            // Pour le TOC, sourceDataArray n'est pas utilisé de la même manière (on déplace les noeuds LI directement)
+        } else if (currentPageData.type === 'chapter') {
+            itemContainerDiv = thisPageDiv.querySelector('.chapter-objects');
+            if (!itemContainerDiv) {
+                console.warn(`[Page Chapitre ${idx}] .chapter-objects manquant.`);
+                return;
+            }
+            // Pour les chapitres, itemsToPaginate sont les éléments rendus, pas les drop-targets
+            itemsToPaginate = Array.from(itemContainerDiv.children)
+                                         .filter(child => child.offsetParent !== null && !child.classList.contains('drop-target'));
+            sourceDataArray = currentPageData.objects; // Le tableau d'objets de la page
+            if (sourceDataArray && sourceDataArray.length !== itemsToPaginate.length) {
+                 console.warn(`[Page Chapitre ${idx}] Incohérence: ${sourceDataArray.length} objets de données vs ${itemsToPaginate.length} éléments rendus.`);
+            }
+            console.log(`[Page Chapitre ${idx}] Mode pagination pour Chapitre. ${itemsToPaginate.length} objets rendus trouvés.`);
+        } else {
+            console.log(`[Page ${idx}] Type de page "${currentPageData.type}" non géré pour la pagination.`);
+            return;
+        }
+
+        const contentDiv = thisPageDiv.querySelector('.content');
+        if (!contentDiv) { // contentDiv est nécessaire pour les calculs de hauteur
+            console.warn(`[Page ${idx}] div.content manquant.`);
+            return;
+        }
+        // chapterObjsDiv n'est pertinent que pour les pages 'chapter', itemContainerDiv est maintenant plus générique.
+        // const chapterObjsDiv = thisPageDiv.querySelector('.chapter-objects');
+
+
+        const pageStyle = getComputedStyle(thisPageDiv);
+        const contentStyle = getComputedStyle(contentDiv);
+        const headerDiv = thisPageDiv.querySelector('.header');
+        const paginationDiv = thisPageDiv.querySelector('.pagination');
+
+        const pageHeight = thisPageDiv.offsetHeight;
+        const headerHeight = headerDiv ? headerDiv.offsetHeight : 0;
+        const paginationHeight = paginationDiv ? paginationDiv.offsetHeight : 0;
+
+        const contentPaddingTop = parseFloat(contentStyle.paddingTop) || 0;
+        const contentPaddingBottom = parseFloat(contentStyle.paddingBottom) || 0;
+
+        const grossContentHeight = pageHeight - headerHeight;
+        // Marge de 10px pour la pagination (qui est en absolute) et 10px de sécurité en plus.
+        const availableHeightForChapterObjects = grossContentHeight - contentPaddingTop - contentPaddingBottom - paginationHeight - 20;
+
+        console.log(`[Page ${idx}] PageH: ${pageHeight.toFixed(2)}, HeaderH: ${headerHeight.toFixed(2)}, ContentPadT: ${contentPaddingTop.toFixed(2)}, ContentPadB: ${contentPaddingBottom.toFixed(2)}, PaginationH: ${paginationHeight.toFixed(2)}, AvailableHForChapterObjects: ${availableHeightForChapterObjects.toFixed(2)}`);
+
+        let accumulatedHeight = 0;
+        let splitAtIndex = -1;
+
+        /*const renderedObjectElements = Array.from(chapterObjsDiv.children)
+                                         .filter(child => child.offsetParent !== null && !child.classList.contains('drop-target'));
+
+        if (currentPageData.objects.length !== renderedObjectElements.length) {
+             console.warn(`[Page ${idx}] Incohérence: ${currentPageData.objects.length} objets de données vs ${renderedObjectElements.length} éléments rendus.`);
+        }
+
+        for (let i = 0; i < renderedObjectElements.length; i++) {
+            if (i >= currentPageData.objects.length) break; // Sécurité
+
+            const element = renderedObjectElements[i];
+            const elementHeight = element.offsetHeight;
+            const elementStyle = getComputedStyle(element);
+            const marginTop = parseFloat(elementStyle.marginTop) || 0;
+            const marginBottom = parseFloat(elementStyle.marginBottom) || 0;
+
+            // Utiliser itemContainerDiv pour obtenir le gap, s'il existe et est pertinent
+            let gap = 0;
+            if (itemContainerDiv && i > 0) { // Gap pertinent seulement s'il y a un conteneur et pas le premier élément
+                const gapProperty = getComputedStyle(itemContainerDiv).gap;
+                if (gapProperty !== 'normal') { // 'normal' (valeur par défaut pour gap) n'est pas utilisable dans parseFloat
+                    gap = parseFloat(gapProperty) || 0;
+                }
+            }
+            const totalElementHeightWithMarginsAndGap = elementHeight + marginTop + marginBottom + gap;
+
+            if (element.classList.contains('rte-area')) {
+                console.log(`  [Page ${idx}][RTE Obj ${i}] InnerHTML length: ${element.innerHTML.length}, OffsetH: ${element.offsetHeight.toFixed(2)}, TotalH+Margins+Gap: ${totalElementHeightWithMarginsAndGap.toFixed(2)}. Accumulated: ${accumulatedHeight.toFixed(2)}`);
+            } else {
+                console.log(`  [Page ${idx}][Obj ${i}] height: ${elementHeight.toFixed(2)}, marginTop: ${marginTop.toFixed(2)}, marginBottom: ${marginBottom.toFixed(2)}, gap: ${gap.toFixed(2)}, total: ${totalElementHeightWithMarginsAndGap.toFixed(2)}. Accumulated: ${accumulatedHeight.toFixed(2)}`);
+            }
+
+            if (accumulatedHeight + totalElementHeightWithMarginsAndGap > availableHeightForChapterObjects) {
+                if (i === 0) { // C'est le premier élément (index 0) qui déborde
+                    if (currentPageData.objects.length > 1 || !isRecursiveCall) {
+                        // S'il y a d'autres objets OU si ce n'est PAS un appel récursif
+                        // (donc potentiellement un ajout direct par l'utilisateur sur une page vide),
+                        // on autorise le déplacement.
+                        splitAtIndex = 0;
+                        console.log(`  [Page ${idx}] Premier élément (index 0) déborde. Autorisé pour déplacement (length: ${currentPageData.objects.length}, isRecursive: ${isRecursiveCall}). splitAtIndex = 0.`);
+                    } else {
+                        // C'est un appel récursif ET c'est le seul objet sur la page : risque de boucle infinie.
+                        console.log(`  [Page ${idx}] Premier et unique élément (index 0) déborde DANS UN APPEL RÉCURSIF. Aucun déplacement pour éviter boucle.`);
+                        splitAtIndex = -1;
+                    }
+                } else { // Ce n'est pas le premier élément (i > 0) qui déborde
+                    splitAtIndex = i;
+                    console.log(`  [Page ${idx}] Élément ${i} déborde. splitAtIndex = ${i}.`);
+                }
                 break;
             }
-        }
-        if (hasPaginated) {
-            for (let i = pages.length - 1; i >= 2; i--) {
-                if (pages[i].objects && pages[i].objects.length === 0 && pages[i].type !== 'cover' && pages[i].type !== 'toc') {
-                    pages.splice(i, 1);
-                    orientation.splice(i, 1);
+            accumulatedHeight += totalElementHeightWithMarginsAndGap;
+        }*/
+        console.log(`[Page ${idx}] Fin boucle. AccumulatedHeight: ${accumulatedHeight.toFixed(2)}, splitAtIndex: ${splitAtIndex}`);
+
+        // La condition pour vérifier si un split est nécessaire doit utiliser la longueur de itemsToPaginate
+        const itemCount = itemsToPaginate.length; // Nombre d'éléments réellement mesurés
+
+        if (splitAtIndex > -1 && splitAtIndex < itemCount) {
+            if (isTocPage) {
+                // La logique spécifique au TOC sera développée dans une étape ultérieure.
+                // Pour l'instant, on loggue si un débordement potentiel est détecté.
+                if (splitAtIndex > -1) {
+                    console.warn(`[Page TOC ${idx}] Débordement détecté pour le Sommaire à l'item ${splitAtIndex} sur ${itemCount} items. La pagination active du TOC n'est pas implémentée.`);
+                } else {
+                    console.log(`[Page TOC ${idx}] Sommaire analysé, pas de débordement détecté.`);
                 }
+            } else if (currentPageData.type === 'chapter') {
+                // ***** Début de la section à commenter pour simplifier *****
+                /*
+                // Logique pour les pages 'chapter'
+                if (!sourceDataArray) { // Sécurité, ne devrait pas arriver si type === 'chapter'
+                    console.error(`[Page Chapitre ${idx}] sourceDataArray est null!`);
+                    return;
+                }
+                // Protection anti-boucle pour les pages chapitre
+                if (sourceDataArray.length === 1 && splitAtIndex === 0 && isRecursiveCall) {
+                    console.warn(`[Page Chapitre ${idx}] Tentative de déplacement du seul objet (appel récursif). Annulation pour éviter boucle.`);
+                } else if (sourceDataArray.length === 0 && itemsToPaginate.length > 0 && splitAtIndex === 0){
+                    // Cas où sourceDataArray est vide mais il y a des éléments dans le DOM (potentielle incohérence)
+                    // Et le premier élément DOM déborde. On ne fait rien pour éviter des erreurs.
+                     console.warn(`[Page Chapitre ${idx}] Incohérence: sourceDataArray vide mais itemsToPaginate non. SplitAtIndex 0. Annulation.`);
+                }
+                else {
+                    let objectsToMove = sourceDataArray.slice(splitAtIndex);
+                    pages[idx].objects = sourceDataArray.slice(0, splitAtIndex); // Mise à jour du modèle de données
+
+                    let nextPageIdx = idx + 1;
+                    let nextPageData = pages[nextPageIdx];
+
+                    if (!nextPageData || nextPageData.type !== 'chapter') {
+                        console.log(`[Page Chapitre ${idx}] Création page (type chapter) après ${idx}.`);
+                        const newPageTemplate = { type: 'chapter', objects: [] };
+                        pages.splice(nextPageIdx, 0, newPageTemplate);
+                        orientation.splice(nextPageIdx, 0, orientation[idx]);
+                        nextPageData = newPageTemplate;
+                    }
+
+                    nextPageData.objects = objectsToMove.concat(nextPageData.objects || []);
+                    console.log(`[Page Chapitre ${idx}] ${objectsToMove.length} objets déplacés vers page ${nextPageIdx}.`);
+
+                    updateAllChapterNumbers();
+                    console.log(`[Page Chapitre ${idx}] Pagination OK. Appel récursif pour page ${nextPageIdx}.`);
+                    paginateObjects(nextPageIdx, true);
+                }
+                */
+                // ***** Fin de la section commentée *****
+                console.log(`[Page Chapitre ${idx}] Pagination pour les pages chapitre temporairement désactivée/simplifiée.`);
             }
-            updateAllChapterNumbers(); // Appel final pour tout recalculer et re-rendre
+        } else {
+             console.log(`[Page ${idx}] Aucune pagination nécessaire (splitAtIndex: ${splitAtIndex}, itemCount: ${itemCount}).`);
+             // Si aucune pagination n'a eu lieu sur cette page ET que ce n'est pas un appel récursif,
+             // on pourrait vouloir vérifier la page suivante. Mais la logique de cascade est mieux gérée par l'appel récursif.
         }
-    }, 100); // Augmenter le délai pour s'assurer que le DOM est stable
+    }, 250); // Augmentation du délai pour plus de stabilité du DOM, surtout avec les calculs de hauteur.
 }
 
-// La fonction paginatePage est un alias ou une version précédente de paginateObjects.
+// La fonction paginatePage est un alias.
 function paginatePage(idx) {
-    paginateObjects(idx);
+    console.log(`paginatePage(${idx}) appelée, redirigée vers paginateObjects.`);
+    paginateObjects(idx, false); // false indique que ce n'est pas un appel récursif interne.
 }

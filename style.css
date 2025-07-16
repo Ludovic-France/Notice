@@ -15,7 +15,7 @@ aside#tools, aside#controls {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    padding: 16px 0;
+    padding: 10px 0;
 }
 aside#tools {
     border-right: 2px solid #eee;
@@ -26,14 +26,14 @@ aside#controls {
     gap: 12px;
 }
 aside h3 {
-    margin: 0 0 10px 20px;
-    font-size: 1.1em;
+    margin: 0 0 5px 20px;
+    font-size: 1em;
     letter-spacing: 1px;
-    font-weight: 600;
+    font-weight: 500;
 }
 .section {
-    margin-bottom: 24px;
-    padding: 0 12px;
+    margin-bottom: 12px;
+    padding: 0 5px;
 }
 .palette button {
     border: none;
@@ -67,8 +67,8 @@ aside h3 {
     gap: 6px;
 }
 #icons-list img {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 3px;
     background: #fff;
     border: 1px solid #bbb;
@@ -82,10 +82,6 @@ main#document {
     padding: 24px 0;
 }
 
-#table-of-contents{
-	list-style-type: none;
-}
-
 
 #pages-container {
     display: flex;
@@ -96,31 +92,32 @@ main#document {
 .page {
     background: #fff;
     width: 210mm;
-    min-height: 297mm;
-    max-width: 100vw;
-    max-height: 297mm;   /* <-- Ajoute cette ligne */
-    overflow: hidden;    /* <-- Ajoute cette ligne */
+    height: 297mm; /* Hauteur fixe A4 portrait */
+    max-width: 210mm; /* S'assurer que la largeur ne dépasse pas */
+    max-height: 297mm; /* S'assurer que la hauteur ne dépasse pas */
     box-shadow: 0 2px 20px #0003;
-    border-radius: 10px;
-    margin-bottom: 0;
+    border-radius: 10px; /* Peut-être à retirer pour un look plus "document" */
+    margin-bottom: 0; /* Maintenu depuis l'original */
     position: relative;
-    overflow: visible;
+    overflow: hidden; /* Empêche le contenu de déborder visuellement */
     display: flex;
     flex-direction: column;
+    background: #fff; /* Fond blanc explicite */
     break-after: page;
 }
 .page.landscape {
     width: 297mm;
-    min-height: 210mm;
-    max-height: 210mm;   /* <-- Ajoute cette ligne */
-    overflow: hidden;    /* <-- Ajoute cette ligne */
+    height: 210mm; /* Hauteur fixe A4 paysage */
+    max-width: 297mm;
+    max-height: 210mm;
+    /* overflow: hidden; est déjà hérité de .page */
 }
 .header {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
     border-bottom: 2px solid #e0e0e0;
-    padding: 18px 32px 10px 32px;
+    padding: 9px 32px 10px 32px;
     height: 80px;
     background: #f6f8fa;
 }
@@ -151,13 +148,14 @@ main#document {
 	font-weight: bold;
 }
 .page .content {
-    flex: 1;
-    padding: 24px 40px 24px 40px;
+    flex: 1; /* Permet au contenu de prendre la hauteur restante après le header */
+    padding: 12px 40px 24px 40px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    overflow: visible;   /* ou 'auto' si tu veux un mini-scroll */
-    max-height: 100%;    /* Ajoute cette ligne pour éviter le débordement */
+    gap: 12px 24px;
+    overflow: hidden;   /* Empêche le débordement interne du contenu de la page */
+    /* max-height n'est plus nécessaire ici car .page a une hauteur fixe et overflow:hidden */
+    /* La hauteur disponible pour .content sera hauteur_page - hauteur_header - hauteur_pagination (si positionnée dans le flux) */
 }
 .page .pagination {
     position: absolute;
@@ -185,13 +183,15 @@ main#document {
     max-height: 100%;
 }
 .rte-area {
-    min-height: 36px;
-    padding: 8px;
+    min-height: 20px;
+    padding: 4px;
     background: #f6f8ff;
     border-radius: 6px;
     border: 1px solid #ccc;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     outline: none;
+    overflow-y: auto; /* Ajout pour gérer le débordement interne de la zone de texte */
+    max-height: 50vh; /* Limite indicative pour éviter une expansion démesurée avant blur */
 }
 .selected {
     box-shadow: 0 0 0 3px #4078d6 !important;
@@ -203,11 +203,7 @@ main#document {
     border-collapse: collapse;
     table-layout: fixed;
 }
-.page-table th, .page-table td {
-    border: 1px solid #888;
-    padding: 8px 5px;
-    min-width: 30px;
-}
+
 .page-table th {
     background: #e3ebf3;
     font-weight: bold;
@@ -216,9 +212,12 @@ main#document {
     background: #d1e0fa;
 }
 .page-table td, .page-table th {
+	border: 1px solid #888;
+    padding: 4px 2px;
     vertical-align: middle;
     text-align: left;
     min-width: 60px;
+	height: auto;
     position: relative;
     border: 1px solid #888;
     word-break: break-word;
@@ -276,15 +275,22 @@ aside#controls button:hover {
     max-height: 25cm;   /* Par exemple, à ajuster si besoin */
 	border: 1px solid #eee;
 	border-radius: 5px;
-    overflow: hidden;
+    /* overflow: hidden; /* Retiré ici pour que le scroll potentiel soit sur .content ou .page */
 	position: relative;
 }
 .drop-target {
     transition: background 0.2s;
-	height: 6px;
-	margin: 2px 0;
-	background: #eee;
+    height: 8px; /* Augmenter la hauteur */
+    padding: 3px 0; /* Ajouter du padding vertical pour augmenter la zone sensible */
+    margin: 2px 0; /* Ajuster les marges si nécessaire */
+    background: #e8e8e8; /* Légèrement plus visible */
     border-radius: 4px;
+    box-sizing: content-box; /* S'assurer que le padding s'ajoute à la hauteur */
+}
+/* Cibler spécifiquement la première drop-target dans .chapter-objects */
+.chapter-objects > .drop-target:first-child {
+    min-height: 20px; /* Rendre la première drop-target encore plus haute */
+    background-color: #ddeeff; /* Couleur distincte pour test */
 }
 .chapter-objects [draggable="true"] {
     cursor: grab;
@@ -294,7 +300,7 @@ aside#controls button:hover {
 }
 .table-container {
     /*width: 100%;*/
-    margin: 10px 0;
+    margin: 2px 0;
 }
 .col-resizer {
     position: absolute;
@@ -488,6 +494,8 @@ aside#controls button:hover {
     /* Masquer les éléments spécifiques à l'édition */
     [contenteditable="true"] {
         border: none !important; /* Pas de bordure pour les éléments éditables */
+		/*border-radius: 6px;
+		border: 1px solid #ddd;*/
     }
 
     .selected {
@@ -508,6 +516,7 @@ aside#controls button:hover {
 #table-of-contents {
 	list-style-type: none;
     padding-left: 0; /* Retirer le padding par défaut des listes ol */
+	max-height: 946px;
 }
 
 #table-of-contents li {
@@ -519,7 +528,7 @@ aside#controls button:hover {
     justify-content: space-between; /* Pousse le titre à gauche et le numéro de page à droite */
     text-decoration: none; /* Enlever le soulignement par défaut des liens */
     color: inherit; /* Le lien hérite de la couleur du texte de son parent */
-    padding: 2px 0; /* Un peu d'espacement vertical pour chaque entrée */
+    padding: 0; /* Un peu d'espacement vertical pour chaque entrée */
 }
 
 #table-of-contents a:hover {
